@@ -1,55 +1,28 @@
 import { useState, useEffect } from "react";
 import { useAuth, API } from "@/App";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Filter, Tag, Trash2, Download, X, Edit2, Search } from "lucide-react";
+import { CalendarIcon, Folder, Trash2, Download, X, Edit2, Search, ArrowRightLeft } from "lucide-react";
 
-const TAGS = [
-  { value: "personal_expense", label: "Personal Expense" },
-  { value: "personal_income", label: "Personal Income" },
-  { value: "loan_given", label: "Loan Given" },
-  { value: "loan_taken", label: "Loan Taken" },
-  { value: "interest_paid", label: "Interest Paid" },
-  { value: "interest_received", label: "Interest Received" },
-  { value: "asset_purchase", label: "Asset Purchase" },
-  { value: "liability_repayment", label: "Liability Repayment" },
-  { value: "transfer", label: "Transfer (Internal)" },
-  { value: "investment", label: "Investment" },
-];
-
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-  }).format(amount || 0);
-};
+const formatCurrency = (amount) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
 
 export default function Transactions() {
   const { token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
-  const [ledgers, setLedgers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [flatCategories, setFlatCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,8 +30,9 @@ export default function Transactions() {
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   // Filters
-  const [filterLedger, setFilterLedger] = useState("all");
-  const [filterTag, setFilterTag] = useState("all");
+  const [filterAccount, setFilterAccount] = useState(searchParams.get("account") || "all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterType, setFilterType] = useState("all");
   const [filterUntagged, setFilterUntagged] = useState(false);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -68,33 +42,38 @@ export default function Transactions() {
     date: "",
     description: "",
     amount: 0,
-    transaction_type: "debit",
-    tag: "",
+    transaction_type: "expense",
+    category_id: "",
     notes: "",
   });
 
   useEffect(() => {
     fetchData();
-  }, [token, filterLedger, filterTag, filterUntagged, startDate, endDate]);
+  }, [token, filterAccount, filterCategory, filterType, filterUntagged, startDate, endDate]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [txnRes, ledgerRes] = await Promise.all([
+      const [txnRes, accountsRes, categoriesRes, flatCatRes] = await Promise.all([
         axios.get(`${API}/transactions`, {
           params: {
             token,
-            ledger_id: filterLedger !== "all" ? filterLedger : undefined,
-            tag: filterTag !== "all" ? filterTag : undefined,
+            account_id: filterAccount !== "all" ? filterAccount : undefined,
+            category_id: filterCategory !== "all" ? filterCategory : undefined,
+            transaction_type: filterType !== "all" ? filterType : undefined,
             untagged: filterUntagged || undefined,
             start_date: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
             end_date: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
           },
         }),
-        axios.get(`${API}/ledgers?token=${token}`),
+        axios.get(`${API}/accounts?token=${token}`),
+        axios.get(`${API}/categories?token=${token}`),
+        axios.get(`${API}/categories/flat?token=${token}`)
       ]);
       setTransactions(txnRes.data);
-      setLedgers(ledgerRes.data);
+      setAccounts(accountsRes.data);
+      setCategories(categoriesRes.data);
+      setFlatCategories(flatCatRes.data);
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
@@ -102,12 +81,20 @@ export default function Transactions() {
     }
   };
 
-  const getLedgerName = (id) => {
-    const ledger = ledgers.find((l) => l.id === id);
-    return ledger?.name || "-";
+  const getAccountName = (id) => accounts.find((a) => a.id === id)?.name || "-";
+  
+  const getCategoryName = (id) => {
+    if (!id) return null;
+    const cat = flatCategories.find(c => c.id === id);
+    if (!cat) return null;
+    if (cat.parent_id) {
+      const parent = flatCategories.find(c => c.id === cat.parent_id);
+      return parent ? `${parent.name} > ${cat.name}` : cat.name;
+    }
+    return cat.name;
   };
 
-  const handleBulkTag = async (tag) => {
+  const handleBulkTag = async (categoryId) => {
     if (selectedIds.length === 0) {
       toast.error("Select transactions first");
       return;
@@ -115,7 +102,7 @@ export default function Transactions() {
     try {
       await axios.post(`${API}/transactions/bulk-tag?token=${token}`, {
         transaction_ids: selectedIds,
-        tag,
+        category_id: categoryId === "none" ? null : categoryId,
       });
       toast.success(`Tagged ${selectedIds.length} transactions`);
       setSelectedIds([]);
@@ -132,7 +119,7 @@ export default function Transactions() {
       description: txn.description,
       amount: txn.amount,
       transaction_type: txn.transaction_type,
-      tag: txn.tag || "",
+      category_id: txn.category_id || "",
       notes: txn.notes || "",
     });
     setShowEditDialog(true);
@@ -140,8 +127,10 @@ export default function Transactions() {
 
   const handleSaveEdit = async () => {
     try {
-      const updateData = { ...editForm };
-      if (updateData.tag === "none") updateData.tag = null;
+      const updateData = { 
+        ...editForm,
+        category_id: editForm.category_id === "none" || !editForm.category_id ? null : editForm.category_id
+      };
       await axios.put(`${API}/transactions/${editingTxn.id}?token=${token}`, updateData);
       toast.success("Transaction updated");
       setShowEditDialog(false);
@@ -169,10 +158,7 @@ export default function Transactions() {
       if (startDate) params.append("start_date", format(startDate, "yyyy-MM-dd"));
       if (endDate) params.append("end_date", format(endDate, "yyyy-MM-dd"));
 
-      const response = await axios.get(`${API}/export/transactions?${params}`, {
-        responseType: "blob",
-      });
-
+      const response = await axios.get(`${API}/export/transactions?${params}`, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -186,33 +172,25 @@ export default function Transactions() {
     }
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredTransactions.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredTransactions.map((t) => t.id));
-    }
-  };
+  const toggleSelect = (id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
+  const toggleSelectAll = () => selectedIds.length === filteredTransactions.length ? setSelectedIds([]) : setSelectedIds(filteredTransactions.map((t) => t.id));
 
   const clearFilters = () => {
-    setFilterLedger("all");
-    setFilterTag("all");
+    setFilterAccount("all");
+    setFilterCategory("all");
+    setFilterType("all");
     setFilterUntagged(false);
     setStartDate(null);
     setEndDate(null);
     setSearchTerm("");
   };
 
-  // Filter by search term
   const filteredTransactions = transactions.filter((txn) =>
     searchTerm === "" || txn.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Get parent categories for bulk tagging
+  const parentCategories = categories;
 
   return (
     <div className="space-y-6 animate-fadeIn" data-testid="transactions-page">
@@ -242,27 +220,35 @@ export default function Transactions() {
             />
           </div>
 
-          <Select value={filterLedger} onValueChange={setFilterLedger}>
-            <SelectTrigger className="w-[160px]" data-testid="filter-ledger">
-              <SelectValue placeholder="All Ledgers" />
+          <Select value={filterAccount} onValueChange={setFilterAccount}>
+            <SelectTrigger className="w-[160px] bg-white" data-testid="filter-account">
+              <SelectValue placeholder="All Accounts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Ledgers</SelectItem>
-              {ledgers.map((l) => (
-                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-              ))}
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accounts.map((a) => (<SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>))}
             </SelectContent>
           </Select>
 
-          <Select value={filterTag} onValueChange={setFilterTag}>
-            <SelectTrigger className="w-[160px]" data-testid="filter-tag">
-              <SelectValue placeholder="All Tags" />
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[160px] bg-white" data-testid="filter-category">
+              <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tags</SelectItem>
-              {TAGS.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-              ))}
+              <SelectItem value="all">All Categories</SelectItem>
+              {parentCategories.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[130px] bg-white" data-testid="filter-type">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="transfer">Transfer</SelectItem>
             </SelectContent>
           </Select>
 
@@ -273,9 +259,7 @@ export default function Transactions() {
                 {startDate ? format(startDate, "dd/MM/yy") : "From"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
-            </PopoverContent>
+            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} /></PopoverContent>
           </Popover>
 
           <Popover>
@@ -285,20 +269,17 @@ export default function Transactions() {
                 {endDate ? format(endDate, "dd/MM/yy") : "To"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
-            </PopoverContent>
+            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} /></PopoverContent>
           </Popover>
 
           <label className="flex items-center gap-2 text-sm text-gray-600">
             <Checkbox checked={filterUntagged} onCheckedChange={setFilterUntagged} data-testid="filter-untagged" />
-            Untagged only
+            Uncategorized
           </label>
 
-          {(filterLedger !== "all" || filterTag !== "all" || filterUntagged || startDate || endDate || searchTerm) && (
+          {(filterAccount !== "all" || filterCategory !== "all" || filterType !== "all" || filterUntagged || startDate || endDate || searchTerm) && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500" data-testid="clear-filters-btn">
-              <X size={14} className="mr-1" />
-              Clear
+              <X size={14} className="mr-1" />Clear
             </Button>
           )}
         </div>
@@ -306,35 +287,30 @@ export default function Transactions() {
 
       {/* Transactions Table */}
       <div className="card-surface overflow-hidden" data-testid="transactions-list">
-        {/* Toolbar */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center gap-4">
-            <Checkbox
-              checked={selectedIds.length > 0 && selectedIds.length === filteredTransactions.length}
-              onCheckedChange={toggleSelectAll}
-              data-testid="select-all"
-            />
-            <span className="text-sm text-gray-600">
-              {selectedIds.length > 0 ? `${selectedIds.length} selected` : `${filteredTransactions.length} transactions`}
-            </span>
+            <Checkbox checked={selectedIds.length > 0 && selectedIds.length === filteredTransactions.length} onCheckedChange={toggleSelectAll} data-testid="select-all" />
+            <span className="text-sm text-gray-600">{selectedIds.length > 0 ? `${selectedIds.length} selected` : `${filteredTransactions.length} transactions`}</span>
           </div>
 
           {selectedIds.length > 0 && (
             <Select onValueChange={handleBulkTag}>
-              <SelectTrigger className="w-[160px]" data-testid="bulk-tag-btn">
-                <Tag size={14} className="mr-2" />
-                <SelectValue placeholder="Bulk Tag" />
+              <SelectTrigger className="w-[180px] bg-white" data-testid="bulk-tag-btn">
+                <Folder size={14} className="mr-2" />
+                <SelectValue placeholder="Bulk Categorize" />
               </SelectTrigger>
               <SelectContent>
-                {TAGS.map((tag) => (
-                  <SelectItem key={tag.value} value={tag.value}>{tag.label}</SelectItem>
+                <SelectItem value="none">Remove Category</SelectItem>
+                {flatCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.parent_id ? `  └ ${cat.name}` : cat.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           )}
         </div>
 
-        {/* Table */}
         {loading ? (
           <div className="p-8 text-center text-gray-500">Loading...</div>
         ) : filteredTransactions.length === 0 ? (
@@ -348,31 +324,31 @@ export default function Transactions() {
                   <th className="text-left">Date</th>
                   <th className="text-left">Description</th>
                   <th className="text-right">Amount</th>
-                  <th className="text-left">Ledger</th>
-                  <th className="text-left">Tag</th>
+                  <th className="text-left">Account</th>
+                  <th className="text-left">Category</th>
                   <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody className="table-dense">
                 {filteredTransactions.map((txn) => (
                   <tr key={txn.id} className={selectedIds.includes(txn.id) ? "bg-blue-50" : ""} data-testid={`txn-row-${txn.id}`}>
-                    <td>
-                      <Checkbox checked={selectedIds.includes(txn.id)} onCheckedChange={() => toggleSelect(txn.id)} />
-                    </td>
+                    <td><Checkbox checked={selectedIds.includes(txn.id)} onCheckedChange={() => toggleSelect(txn.id)} /></td>
                     <td className="font-mono text-sm text-gray-700">{txn.date}</td>
                     <td className="text-sm text-gray-900 max-w-[300px] truncate" title={txn.description}>{txn.description}</td>
-                    <td className={`font-mono text-sm text-right font-medium ${txn.transaction_type === "credit" ? "text-emerald-600" : "text-rose-600"}`}>
-                      {txn.transaction_type === "credit" ? "+" : "-"}{formatCurrency(txn.amount)}
+                    <td className={`font-mono text-sm text-right font-medium ${txn.transaction_type === "income" ? "text-emerald-600" : txn.transaction_type === "transfer" ? "text-blue-600" : "text-rose-600"}`}>
+                      {txn.transaction_type === "income" ? "+" : txn.transaction_type === "transfer" ? "↔" : "-"}{formatCurrency(txn.amount)}
                     </td>
-                    <td className="text-sm text-gray-600">{getLedgerName(txn.ledger_id)}</td>
+                    <td className="text-sm text-gray-600">{getAccountName(txn.account_id)}</td>
                     <td>
-                      {txn.tag ? (
-                        <span className={`tag ${
-                          txn.tag.includes("income") || txn.tag.includes("received") ? "tag-income" :
-                          txn.tag.includes("expense") || txn.tag.includes("paid") ? "tag-expense" :
-                          txn.tag.includes("loan") ? "tag-loan" : "tag-transfer"
-                        }`}>
-                          {txn.tag.replace(/_/g, " ")}
+                      {txn.category_id ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+                          <Folder size={12} />
+                          {getCategoryName(txn.category_id)}
+                        </span>
+                      ) : txn.payee_id ? (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700">
+                          <ArrowRightLeft size={12} />
+                          {getAccountName(txn.payee_id)}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
@@ -399,9 +375,7 @@ export default function Transactions() {
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Transaction</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Transaction</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -421,25 +395,24 @@ export default function Transactions() {
               <div>
                 <Label>Type</Label>
                 <Select value={editForm.transaction_type} onValueChange={(val) => setEditForm({ ...editForm, transaction_type: val })}>
-                  <SelectTrigger className="mt-1" data-testid="edit-type">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="mt-1 bg-white" data-testid="edit-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="debit">Debit (Expense)</SelectItem>
-                    <SelectItem value="credit">Credit (Income)</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Tag</Label>
-                <Select value={editForm.tag} onValueChange={(val) => setEditForm({ ...editForm, tag: val })}>
-                  <SelectTrigger className="mt-1" data-testid="edit-tag">
-                    <SelectValue placeholder="Select tag" />
-                  </SelectTrigger>
+                <Label>Category</Label>
+                <Select value={editForm.category_id || "none"} onValueChange={(val) => setEditForm({ ...editForm, category_id: val === "none" ? "" : val })}>
+                  <SelectTrigger className="mt-1 bg-white" data-testid="edit-category"><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No tag</SelectItem>
-                    {TAGS.map((tag) => (
-                      <SelectItem key={tag.value} value={tag.value}>{tag.label}</SelectItem>
+                    <SelectItem value="none">No category</SelectItem>
+                    {flatCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.parent_id ? `  └ ${cat.name}` : cat.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
