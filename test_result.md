@@ -1,65 +1,94 @@
-# Test Plan for Personal Accounting App - Architectural Rebuild
+backend:
+  - task: "Authentication System"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Initial testing required for auth endpoints"
 
-## Application Context
-This is a personal accounting software with:
-- Hierarchical categories (Personal > Uber, Food > Restaurants etc.)
-- Accounts (Bank, Cash, Loans Receivable/Payable)
-- Double-entry transactions with proper linking
-- Bank statement upload with tagging
+  - task: "Categories API (Hierarchical)"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to test hierarchical categories with parent-child relationships"
 
-## Credentials
-- Password: admin123
+  - task: "Accounts API"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Test CRUD operations for accounts (Bank, Cash, Loan types)"
 
-## Features to Test
+  - task: "Transactions API (Double-entry)"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Test expense, income, transfer transactions with proper account balance updates"
 
-### 1. Dashboard
-- Check net worth displays correctly
-- Recent transactions shown
-- All metrics (Bank Balance, Cash, Loans) display
+  - task: "Reports API"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Test dashboard and income-expense reports with category grouping"
 
-### 2. Accounts Page
-- Create new bank account
-- Create loan receivable account with person name
-- Edit account
-- Delete account
-- View account transactions on click
+frontend:
+  - task: "Frontend Integration"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Frontend testing not performed by testing agent"
 
-### 3. Categories Page  
-- View expense categories (should have Personal, Food & Dining, etc.)
-- View income categories
-- Create new parent category
-- Create sub-category under existing parent
-- Edit category
-- Delete category
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
 
-### 4. Add Entry Page
-- Record expense with category
-- Record expense with sub-category
-- Record income
-- Record transfer between accounts (Bank → Loan)
-- Create new category inline
+test_plan:
+  current_focus:
+    - "Authentication System"
+    - "Categories API (Hierarchical)"
+    - "Accounts API"
+    - "Transactions API (Double-entry)"
+    - "Reports API"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
 
-### 5. Bank Upload Page
-- Select bank account from dropdown
-- Upload would require actual file - SKIP
-- Check UI is clean (no black dropdowns)
-
-### 6. Transactions Page
-- View all transactions
-- Filter by account
-- Filter by category
-- Search transactions
-- Edit transaction
-- Delete transaction
-- Bulk tag transactions
-
-### 7. Settings Page
-- Change password
-- Export transactions
-- Reset all data dialog shows
-
-## URL
-Use http://localhost:3000 for testing
-
-## Known Issues
-None currently - fresh rebuild
+agent_communication:
+  - agent: "testing"
+    message: "Starting backend API testing for Personal Accounting App architectural rebuild. Testing auth, categories, accounts, transactions, and reports."
