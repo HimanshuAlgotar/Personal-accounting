@@ -465,6 +465,93 @@ async def delete_transaction(transaction_id: str, token: str):
     await db.transactions.delete_one({"id": transaction_id})
     return {"message": "Transaction deleted"}
 
+# ================== TRANSFERS & MANUAL ENTRIES ==================
+
+@api_router.post("/transfers")
+async def create_transfer(data: TransferCreate, token: str):
+    """Create a transfer between two accounts - creates paired transactions"""
+    await get_current_user(token)
+    
+    transfer_id = str(uuid.uuid4())
+    
+    # Debit from source account
+    debit_txn = Transaction(
+        date=data.date,
+        description=data.description,
+        amount=data.amount,
+        transaction_type="debit",
+        ledger_id=data.from_ledger_id,
+        notes=data.notes,
+        source="transfer",
+        tag="transfer",
+        transfer_id=transfer_id,
+        linked_loan_id=data.linked_loan_id
+    )
+    await db.transactions.insert_one(debit_txn.model_dump())
+    
+    # Update source ledger balance (debit = reduce)
+    await db.ledgers.update_one(
+        {"id": data.from_ledger_id},
+        {"$inc": {"current_balance": -data.amount}}
+    )
+    
+    # Credit to destination account
+    credit_txn = Transaction(
+        date=data.date,
+        description=data.description,
+        amount=data.amount,
+        transaction_type="credit",
+        ledger_id=data.to_ledger_id,
+        notes=data.notes,
+        source="transfer",
+        tag="transfer",
+        transfer_id=transfer_id,
+        linked_loan_id=data.linked_loan_id
+    )
+    await db.transactions.insert_one(credit_txn.model_dump())
+    
+    # Update destination ledger balance (credit = increase)
+    await db.ledgers.update_one(
+        {"id": data.to_ledger_id},
+        {"$inc": {"current_balance": data.amount}}
+    )
+    
+    return {"message": "Transfer created", "transfer_id": transfer_id}
+
+@api_router.post("/transactions/manual")
+async def create_manual_transaction(data: ManualTransactionCreate, token: str):
+    """Create a single manual transaction (income/expense)"""
+    await get_current_user(token)
+    
+    transaction = Transaction(
+        date=data.date,
+        description=data.description,
+        amount=data.amount,
+        transaction_type=data.transaction_type,
+        ledger_id=data.ledger_id,
+        notes=data.notes,
+        source="manual",
+        tag=data.tag,
+        linked_loan_id=data.linked_loan_id
+    )
+    await db.transactions.insert_one(transaction.model_dump())
+    
+    # Update ledger balance
+    multiplier = -1 if data.transaction_type == "debit" else 1
+    await db.ledgers.update_one(
+        {"id": data.ledger_id},
+        {"$inc": {"current_balance": data.amount * multiplier}}
+    )
+    
+    # If linked to loan and is interest, update loan interest_paid
+    if data.linked_loan_id and data.tag in ["interest_paid", "interest_received"]:
+        await db.loans.update_one(
+            {"id": data.linked_loan_id},
+            {"$inc": {"interest_paid": data.amount}}
+        )
+    
+    return transaction
+
 # ================== BANK STATEMENT UPLOAD ==================
 
 async def apply_auto_tags(transactions: List[Dict]) -> List[Dict]:
