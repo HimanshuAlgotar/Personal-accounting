@@ -56,9 +56,16 @@ export default function Reports() {
     } catch (err) { toast.error("Export failed"); }
   };
 
-  const incomeChartData = incomeExpense ? Object.entries(incomeExpense.income_by_tag).map(([name, value]) => ({ name: name.replace(/_/g, " "), value })) : [];
-  const expenseChartData = incomeExpense ? Object.entries(incomeExpense.expense_by_tag).map(([name, value]) => ({ name: name.replace(/_/g, " "), value })) : [];
-  const comparisonData = incomeExpense ? [{ name: "Income", amount: incomeExpense.total_income }, { name: "Expense", amount: incomeExpense.total_expense }] : [];
+  // Fix: Use income_by_category and expense_by_category with null checks
+  const incomeChartData = incomeExpense?.income_by_category 
+    ? Object.entries(incomeExpense.income_by_category).map(([name, value]) => ({ name: name.replace(/_/g, " "), value })) 
+    : [];
+  const expenseChartData = incomeExpense?.expense_by_category 
+    ? Object.entries(incomeExpense.expense_by_category).map(([name, value]) => ({ name: name.replace(/_/g, " "), value })) 
+    : [];
+  const comparisonData = incomeExpense 
+    ? [{ name: "Income", amount: incomeExpense.total_income || 0 }, { name: "Expense", amount: incomeExpense.total_expense || 0 }] 
+    : [];
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-gray-500">Loading reports...</div></div>;
 
@@ -90,16 +97,19 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card-surface p-6" data-testid="assets-section">
               <h2 className="text-lg font-semibold text-emerald-600 mb-4 flex items-center gap-2"><TrendingUp size={20} strokeWidth={1.5} />Assets</h2>
-              {Object.entries(balanceSheet?.assets || {}).map(([category, items]) => items.length === 0 ? null : (
+              {balanceSheet?.assets && Object.entries(balanceSheet.assets).map(([category, items]) => !items || items.length === 0 ? null : (
                 <div key={category} className="mb-4"><h3 className="text-sm text-gray-500 uppercase tracking-wider mb-2">{category.replace(/_/g, " ")}</h3>{items.map((item) => (<div key={item.id} className="flex justify-between py-2 border-b border-gray-100"><span className="text-gray-700">{item.name}</span><span className="font-mono text-emerald-600">{formatCurrency(item.current_balance)}</span></div>))}</div>
               ))}
               <div className="flex justify-between pt-4 border-t border-gray-200"><span className="font-semibold text-gray-900">Total Assets</span><span className="font-mono font-semibold text-emerald-600">{formatCurrency(balanceSheet?.total_assets)}</span></div>
             </div>
             <div className="card-surface p-6" data-testid="liabilities-section">
               <h2 className="text-lg font-semibold text-rose-600 mb-4 flex items-center gap-2"><TrendingDown size={20} strokeWidth={1.5} />Liabilities</h2>
-              {Object.entries(balanceSheet?.liabilities || {}).map(([category, items]) => items.length === 0 ? null : (
+              {balanceSheet?.liabilities && Object.entries(balanceSheet.liabilities).map(([category, items]) => !items || items.length === 0 ? null : (
                 <div key={category} className="mb-4"><h3 className="text-sm text-gray-500 uppercase tracking-wider mb-2">{category.replace(/_/g, " ")}</h3>{items.map((item) => (<div key={item.id} className="flex justify-between py-2 border-b border-gray-100"><span className="text-gray-700">{item.name}</span><span className="font-mono text-rose-600">{formatCurrency(item.current_balance)}</span></div>))}</div>
               ))}
+              {(!balanceSheet?.liabilities || Object.values(balanceSheet.liabilities).every(arr => !arr || arr.length === 0)) && (
+                <p className="text-gray-500 text-center py-4">No liabilities</p>
+              )}
               <div className="flex justify-between pt-4 border-t border-gray-200"><span className="font-semibold text-gray-900">Total Liabilities</span><span className="font-mono font-semibold text-rose-600">{formatCurrency(balanceSheet?.total_liabilities)}</span></div>
             </div>
           </div>
@@ -110,7 +120,7 @@ export default function Reports() {
           <div className="grid grid-cols-3 gap-4">
             <div className="metric-card" data-testid="ie-total-income"><div className="flex items-center gap-2 mb-2"><TrendingUp size={18} className="text-emerald-600" strokeWidth={1.5} /><p className="metric-label mb-0">Total Income</p></div><p className="metric-value text-emerald-600">{formatCurrency(incomeExpense?.total_income)}</p></div>
             <div className="metric-card" data-testid="ie-total-expense"><div className="flex items-center gap-2 mb-2"><TrendingDown size={18} className="text-rose-600" strokeWidth={1.5} /><p className="metric-label mb-0">Total Expense</p></div><p className="metric-value text-rose-600">{formatCurrency(incomeExpense?.total_expense)}</p></div>
-            <div className="metric-card" data-testid="ie-net-income"><p className="metric-label">Net Income</p><p className={`metric-value ${incomeExpense?.net_income >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(incomeExpense?.net_income)}</p></div>
+            <div className="metric-card" data-testid="ie-net-income"><p className="metric-label">Net Income</p><p className={`metric-value ${(incomeExpense?.net_income || 0) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(incomeExpense?.net_income)}</p></div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card-surface p-6" data-testid="income-chart"><h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><PieChart size={20} className="text-emerald-600" strokeWidth={1.5} />Income by Category</h3>{incomeChartData.length > 0 ? (<ResponsiveContainer width="100%" height={250}><RePieChart><Pie data={incomeChartData} cx="50%" cy="50%" outerRadius={80} fill="#22c55e" dataKey="value" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false}>{incomeChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}</Pie><Tooltip formatter={(value) => formatCurrency(value)} /></RePieChart></ResponsiveContainer>) : (<div className="h-[250px] flex items-center justify-center text-gray-500">No income data</div>)}</div>
