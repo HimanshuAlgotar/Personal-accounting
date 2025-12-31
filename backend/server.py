@@ -109,6 +109,7 @@ class Transaction(BaseModel):
     ledger_id: Optional[str] = None  # Legacy field for backward compatibility
     category_id: Optional[str] = None
     payee_id: Optional[str] = None  # For transfers
+    linked_loan_id: Optional[str] = None  # Link interest to specific loan
     transaction_type: str  # expense, income, transfer
     reference: str = ""
     notes: str = ""
