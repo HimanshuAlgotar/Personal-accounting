@@ -726,11 +726,12 @@ async def save_uploaded_transactions(transactions: List[Dict[str, Any]], token: 
         await db.transactions.insert_one(txn)
         
         # Update account balance
-        if txn.get("account_id"):
+        effective_account_id = txn.get("account_id") or txn.get("ledger_id")
+        if effective_account_id:
             if txn["transaction_type"] == "expense":
-                await db.accounts.update_one({"id": txn["account_id"]}, {"$inc": {"current_balance": -txn["amount"]}})
+                await db.accounts.update_one({"id": effective_account_id}, {"$inc": {"current_balance": -txn["amount"]}})
             elif txn["transaction_type"] == "income":
-                await db.accounts.update_one({"id": txn["account_id"]}, {"$inc": {"current_balance": txn["amount"]}})
+                await db.accounts.update_one({"id": effective_account_id}, {"$inc": {"current_balance": txn["amount"]}})
         
         # Save tag pattern
         if txn.get("category_id") or txn.get("payee_id"):
