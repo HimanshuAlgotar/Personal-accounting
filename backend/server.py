@@ -123,6 +123,23 @@ class LoanRepayment(BaseModel):
     is_interest: bool = False
     notes: Optional[str] = ""
 
+class LoanUpdate(BaseModel):
+    person_name: Optional[str] = None
+    principal: Optional[float] = None
+    interest_rate: Optional[float] = None
+    interest_type: Optional[str] = "simple"  # simple, compound
+    start_date: Optional[str] = None
+    notes: Optional[str] = None
+
+class TransactionUpdate(BaseModel):
+    date: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    transaction_type: Optional[str] = None
+    ledger_id: Optional[str] = None
+    tag: Optional[str] = None
+    notes: Optional[str] = None
+
 class TagPattern(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
