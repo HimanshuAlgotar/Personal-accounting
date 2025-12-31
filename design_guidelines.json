@@ -1,0 +1,148 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Anti-AI Designer",
+    "philosophy": "Fusion over Imitation. Emotion First. Content is King.",
+    "anti_patterns": [
+      "Purple/Teal gradients for CTAs",
+      "Inter font for headings",
+      "Center-aligned everything",
+      "Gradient overload (>20%)",
+      "Generic 'SaaS Blue' default themes"
+    ]
+  },
+  "project_context": {
+    "app_name": "LedgerOS",
+    "app_type": "Dashboard / Admin Panel",
+    "target_audience": "Finance-heavy individual, anti-clutter, pro-user",
+    "emotional_tone": "Precision, Authority, Calm, Control",
+    "theme_strategy": "Dark Mode 'Control Room' (Archetype 4/5 Hybrid)"
+  },
+  "design_system": {
+    "typography": {
+      "headings": {
+        "font_family": "Chivo, sans-serif",
+        "usage": "Page titles, Section headers, Big metrics",
+        "weights": ["Light (300)", "Bold (700)"],
+        "tracking": "tracking-tight"
+      },
+      "body": {
+        "font_family": "Manrope, sans-serif",
+        "usage": "General text, labels, inputs",
+        "weights": ["Regular (400)", "Medium (500)"]
+      },
+      "data": {
+        "font_family": "JetBrains Mono, monospace",
+        "usage": "ALL Currency values, Dates, Transaction IDs, Account Numbers",
+        "weights": ["Regular (400)"],
+        "notes": "CRITICAL: All financial data must use this font for alignment and precision."
+      }
+    },
+    "colors": {
+      "palette_name": "The Dark Ledger",
+      "background": {
+        "default": "bg-slate-950",
+        "card": "bg-slate-900/50",
+        "surface": "bg-slate-900"
+      },
+      "primary": {
+        "default": "bg-indigo-500",
+        "hover": "bg-indigo-400",
+        "text": "text-indigo-400"
+      },
+      "semantic": {
+        "success": "text-emerald-400",
+        "danger": "text-rose-500",
+        "warning": "text-amber-400",
+        "muted": "text-slate-400"
+      },
+      "border": {
+        "default": "border-slate-800",
+        "active": "border-slate-700"
+      }
+    },
+    "layout": {
+      "spacing_scale": "Generous (2x standard)",
+      "grid_system": "The 'Control Room' Grid (Mode B)",
+      "container_style": "Fluid with max-width constraints for readability",
+      "border_radius": "rounded-sm (Sharp, technical feel)"
+    },
+    "visual_enhancers": {
+      "glassmorphism": "Sticky headers only: backdrop-blur-xl bg-slate-950/80 border-b border-slate-800",
+      "borders": "Grid Borders: 1px solid border-slate-800 on all cards. No shadows.",
+      "textures": "Subtle noise overlay on the main background to kill digital flatness (optional)",
+      "shadows": "None. Use borders and contrast for hierarchy."
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Sharp or slightly rounded (rounded-sm)",
+      "variants": {
+        "primary": "bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-[0_0_15px_rgba(79,70,229,0.3)]",
+        "secondary": "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700",
+        "ghost": "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+      }
+    },
+    "cards": {
+      "style": "bg-slate-900/40 border border-slate-800 backdrop-blur-sm",
+      "padding": "p-6"
+    },
+    "inputs": {
+      "style": "bg-slate-950 border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-sm font-mono text-sm"
+    },
+    "tables": {
+      "style": "Dense. py-2 px-4. Row hover: bg-slate-900. Header: text-xs uppercase tracking-wider text-slate-500 font-bold"
+    }
+  },
+  "assets": {
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px (Thin, precise)",
+      "usage": "Use for navigation, actions, and status indicators."
+    },
+    "images": {
+      "login_background": {
+        "url": "https://images.unsplash.com/photo-1620481496883-0a8e19dc3b4c?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "alt": "Abstract Dark Finance Background"
+      },
+      "net_worth_card_bg": {
+        "url": "https://images.unsplash.com/photo-1727169704212-51db1fa0b507?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "alt": "Coin Macro Detail"
+      },
+      "user_avatar_placeholder": {
+        "url": "https://images.unsplash.com/photo-1637043756935-c60895cc05df?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "alt": "Abstract Avatar"
+      }
+    }
+  },
+  "page_strategies": {
+    "dashboard": {
+      "layout": "Bento Grid (Control Room Mode)",
+      "key_elements": [
+        "Net Worth Hero Card (Wide)",
+        "Quick Action Row (Upload, Add Cash, Add Loan)",
+        "Recent Transactions List (Tall)",
+        "Monthly Spending Trend (Chart)"
+      ]
+    },
+    "transactions": {
+      "layout": "Split View (Filters Left, Table Right) or Full Width Table",
+      "features": ["Bulk Tagging", "Keyboard Shortcuts", "Dense Rows"]
+    },
+    "reports": {
+      "layout": "Print-friendly layout option",
+      "visuals": "Clean, minimal charts (Recharts). No 3D pie charts."
+    }
+  },
+  "universal_guidelines": [
+    "DO NOT use gradients for backgrounds. Use solid Slate-950.",
+    "DO NOT use 'Inter' for headings. Use 'Chivo'.",
+    "ALWAYS use 'JetBrains Mono' for currency.",
+    "Ensure all interactive elements have `data-testid`.",
+    "Use `sonner` for toasts.",
+    "Use `lucide-react` for icons.",
+    "Dark mode is the DEFAULT and ONLY mode for this MVP.",
+    "Spacing should be generous between sections (gap-8), but tight within data tables (gap-2)."
+  ],
+  "instructions_to_main_agent": "You are building a 'Pro' tool. Think 'Bloomberg Terminal' meets 'Linear'. Prioritize keyboard accessibility, data density, and speed. Do not add unnecessary decorative elements. The data is the decoration."
+}
