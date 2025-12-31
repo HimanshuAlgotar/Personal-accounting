@@ -956,17 +956,31 @@ async def get_income_expense(token: str, start_date: Optional[str] = None, end_d
             query["date"] = {"$lte": end_date}
     
     transactions = await db.transactions.find(query, {"_id": 0}).to_list(10000)
+    loans = await db.loans.find({}, {"_id": 0}).to_list(1000)
+    loan_map = {l["id"]: l["person_name"] for l in loans}
     
     # Group by tag
     income_by_tag = {}
     expense_by_tag = {}
     
+    # Interest by loan
+    interest_income_by_loan = {}
+    interest_expense_by_loan = {}
+    
     for txn in transactions:
         tag = txn.get("tag") or "Untagged"
         if txn["transaction_type"] == "credit":
             income_by_tag[tag] = income_by_tag.get(tag, 0) + txn["amount"]
+            # Track interest income by loan
+            if tag == "interest_received" and txn.get("linked_loan_id"):
+                loan_name = loan_map.get(txn["linked_loan_id"], "Unknown")
+                interest_income_by_loan[loan_name] = interest_income_by_loan.get(loan_name, 0) + txn["amount"]
         else:
             expense_by_tag[tag] = expense_by_tag.get(tag, 0) + txn["amount"]
+            # Track interest expense by loan
+            if tag == "interest_paid" and txn.get("linked_loan_id"):
+                loan_name = loan_map.get(txn["linked_loan_id"], "Unknown")
+                interest_expense_by_loan[loan_name] = interest_expense_by_loan.get(loan_name, 0) + txn["amount"]
     
     total_income = sum(income_by_tag.values())
     total_expense = sum(expense_by_tag.values())
