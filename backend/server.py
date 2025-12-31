@@ -258,6 +258,32 @@ async def change_password(data: SettingsUpdate, token: str):
     await db.users.update_one({}, {"$set": {"password_hash": hash_password(data.new_password)}})
     return {"message": "Password changed successfully"}
 
+@api_router.post("/auth/reset-all-data")
+async def reset_all_data(token: str):
+    """Delete all data except user credentials - fresh start"""
+    await get_current_user(token)
+    
+    # Drop all collections except users and sessions
+    await db.ledgers.drop()
+    await db.transactions.drop()
+    await db.loans.drop()
+    await db.tag_patterns.drop()
+    
+    # Create default ledgers again
+    default_ledgers = [
+        {"name": "Cash", "type": "asset", "category": "cash", "description": "Cash in hand"},
+        {"name": "Personal Expenses", "type": "expense", "category": "personal_expense", "description": "Day to day expenses"},
+        {"name": "Personal Income", "type": "income", "category": "personal_income", "description": "Salary and other income"},
+        {"name": "Interest Income", "type": "income", "category": "interest_income", "description": "Interest received on loans given"},
+        {"name": "Interest Expense", "type": "expense", "category": "interest_expense", "description": "Interest paid on loans taken"},
+    ]
+    
+    for ledger in default_ledgers:
+        ledger_obj = Ledger(**ledger)
+        await db.ledgers.insert_one(ledger_obj.model_dump())
+    
+    return {"message": "All data reset successfully. Default ledgers created."}
+
 # ================== LEDGERS ==================
 
 @api_router.post("/ledgers", response_model=Ledger)
