@@ -12,6 +12,7 @@ import {
   Upload,
   Plus,
   CreditCard,
+  Folder,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +20,7 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
   }).format(amount || 0);
 };
 
@@ -66,8 +67,8 @@ export default function Dashboard() {
               Upload Statement
             </Button>
           </Link>
-          <Link to="/cash">
-            <Button size="sm" data-testid="add-cash-btn">
+          <Link to="/add-entry">
+            <Button size="sm" data-testid="add-entry-btn">
               <Plus size={16} className="mr-2" />
               Add Entry
             </Button>
@@ -183,19 +184,17 @@ export default function Dashboard() {
                   <p className="text-xs text-gray-500 font-mono">{txn.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {txn.tag && (
-                    <span className={`tag ${
-                      txn.tag.includes("income") || txn.tag.includes("received") ? "tag-income" :
-                      txn.tag.includes("expense") || txn.tag.includes("paid") ? "tag-expense" :
-                      txn.tag.includes("loan") ? "tag-loan" : "tag-transfer"
-                    }`}>
-                      {txn.tag.replace(/_/g, " ")}
+                  {txn.category_name && (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+                      <Folder size={10} />
+                      {txn.category_name}
                     </span>
                   )}
                   <p className={`font-mono text-sm font-medium ${
-                    txn.transaction_type === "credit" ? "text-emerald-600" : "text-rose-600"
+                    txn.transaction_type === "income" ? "text-emerald-600" : 
+                    txn.transaction_type === "transfer" ? "text-blue-600" : "text-rose-600"
                   }`}>
-                    {txn.transaction_type === "credit" ? "+" : "-"}{formatCurrency(txn.amount)}
+                    {txn.transaction_type === "income" ? "+" : txn.transaction_type === "transfer" ? "↔" : "-"}{formatCurrency(txn.amount)}
                   </p>
                 </div>
               </div>
