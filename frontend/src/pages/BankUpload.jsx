@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
-import { Upload, FileSpreadsheet, Save, Tag, X, CheckCircle2, Plus, ChevronRight, Folder, ArrowRightLeft } from "lucide-react";
+import { Upload, FileSpreadsheet, Save, Tag, X, CheckCircle2, Plus, ChevronRight, Folder, ArrowRightLeft, Trash2 } from "lucide-react";
 
 const formatCurrency = (amount) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
 
@@ -31,6 +31,7 @@ export default function BankUpload() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [selectedPayee, setSelectedPayee] = useState("");
+  const [selectedLoanId, setSelectedLoanId] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showNewCategory, setShowNewCategory] = useState(false);
 
@@ -69,6 +70,7 @@ export default function BankUpload() {
     setSelectedCategory(txn.category_id || "");
     setSelectedSubCategory("");
     setSelectedPayee(txn.payee_id || "");
+    setSelectedLoanId(txn.linked_loan_id || "");
     setShowCategoryDialog(true);
   };
 
@@ -81,7 +83,7 @@ export default function BankUpload() {
       // Bulk update
       setTransactions((prev) => prev.map((txn) => 
         selectedIds.includes(txn.id) 
-          ? { ...txn, category_id: categoryId || null, payee_id: selectedPayee || null } 
+          ? { ...txn, category_id: categoryId || null, payee_id: selectedPayee || null, linked_loan_id: selectedLoanId || null } 
           : txn
       ));
       toast.success(`Tagged ${selectedIds.length} transactions`);
@@ -90,7 +92,7 @@ export default function BankUpload() {
       // Single update
       setTransactions((prev) => prev.map((txn) => 
         txn.id === selectedTxnForTag.id 
-          ? { ...txn, category_id: categoryId || null, payee_id: selectedPayee || null } 
+          ? { ...txn, category_id: categoryId || null, payee_id: selectedPayee || null, linked_loan_id: selectedLoanId || null } 
           : txn
       ));
       toast.success("Transaction tagged");
@@ -101,6 +103,7 @@ export default function BankUpload() {
     setSelectedCategory("");
     setSelectedSubCategory("");
     setSelectedPayee("");
+    setSelectedLoanId("");
   };
 
   const createNewCategory = async () => {
@@ -116,7 +119,6 @@ export default function BankUpload() {
       setShowNewCategory(false);
       fetchData();
       
-      // Auto-select the new category
       if (selectedCategory) {
         setSelectedSubCategory(res.data.id);
       } else {
@@ -129,6 +131,30 @@ export default function BankUpload() {
 
   const toggleSelect = (id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
   const toggleSelectAll = () => selectedIds.length === transactions.length ? setSelectedIds([]) : setSelectedIds(transactions.map((t) => t.id));
+
+  // Delete single transaction from pending list
+  const deleteTransaction = (id) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    setSelectedIds((prev) => prev.filter((i) => i !== id));
+    toast.success("Transaction removed");
+  };
+
+  // Delete selected transactions
+  const deleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    setTransactions((prev) => prev.filter((t) => !selectedIds.includes(t.id)));
+    toast.success(`Removed ${selectedIds.length} transactions`);
+    setSelectedIds([]);
+  };
+
+  // Delete all transactions
+  const deleteAll = () => {
+    if (!confirm("Remove all pending transactions?")) return;
+    setTransactions([]);
+    setSelectedIds([]);
+    setFile(null);
+    toast.success("All transactions removed");
+  };
 
   const handleSave = async () => {
     if (transactions.length === 0) return;
@@ -159,8 +185,11 @@ export default function BankUpload() {
   };
 
   const bankAccounts = accounts.filter((a) => a.account_type === "bank");
-  const payeeAccounts = accounts.filter((a) => a.account_type === "loan_receivable" || a.account_type === "loan_payable");
+  const loanAccounts = accounts.filter((a) => a.account_type === "loan_receivable" || a.account_type === "loan_payable");
   const selectedCategoryData = categories.find(c => c.id === selectedCategory);
+
+  // Check if Interest Paid or Interest Received category is selected
+  const isInterestCategory = selectedCategoryData?.name === "Interest Paid" || selectedCategoryData?.name === "Interest Received";
 
   return (
     <div className="space-y-6 animate-fadeIn" data-testid="bank-upload-page">
@@ -229,15 +258,22 @@ export default function BankUpload() {
             </div>
             <div className="flex items-center gap-2">
               {selectedIds.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => {
-                  const firstSelected = transactions.find(t => t.id === selectedIds[0]);
-                  openTagDialog(firstSelected);
-                }}>
-                  <Tag size={14} className="mr-2" />Bulk Tag ({selectedIds.length})
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const firstSelected = transactions.find(t => t.id === selectedIds[0]);
+                    openTagDialog(firstSelected);
+                  }}>
+                    <Tag size={14} className="mr-2" />Bulk Tag ({selectedIds.length})
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={deleteSelected} className="text-rose-600 hover:text-rose-700">
+                    <Trash2 size={14} className="mr-2" />Delete Selected
+                  </Button>
+                </>
               )}
+              <Button variant="outline" size="sm" onClick={deleteAll} className="text-rose-600 hover:text-rose-700" data-testid="delete-all-btn">
+                <Trash2 size={14} className="mr-2" />Delete All
+              </Button>
               <Button onClick={handleSave} disabled={saving} data-testid="save-transactions-btn"><Save size={16} className="mr-2" />{saving ? "Saving..." : "Save All"}</Button>
-              <Button variant="ghost" size="icon" onClick={() => { setTransactions([]); setFile(null); }} data-testid="clear-btn"><X size={18} /></Button>
             </div>
           </div>
 
@@ -251,6 +287,7 @@ export default function BankUpload() {
                   <th className="text-right">Amount</th>
                   <th className="text-left w-32">Type</th>
                   <th className="text-left w-48">Category / Payee</th>
+                  <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody className="table-dense">
@@ -279,6 +316,11 @@ export default function BankUpload() {
                             Tag...
                           </span>
                         )}
+                      </Button>
+                    </td>
+                    <td>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteTransaction(txn.id)}>
+                        <X size={14} className="text-gray-400 hover:text-rose-600" />
                       </Button>
                     </td>
                   </tr>
@@ -356,6 +398,27 @@ export default function BankUpload() {
               </div>
             )}
 
+            {/* Link to Loan Account - Show for Interest categories */}
+            {isInterestCategory && loanAccounts.length > 0 && (
+              <div className="pt-2 border-t">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Link to Loan (for interest tracking)</label>
+                <Select value={selectedLoanId} onValueChange={setSelectedLoanId}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select loan account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No specific loan</SelectItem>
+                    {loanAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} {acc.person_name ? `(${acc.person_name})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">Track which loan this interest payment belongs to</p>
+              </div>
+            )}
+
             {/* Create new category/sub-category */}
             {!showNewCategory ? (
               <Button variant="ghost" size="sm" onClick={() => setShowNewCategory(true)} className="text-blue-600">
@@ -378,7 +441,7 @@ export default function BankUpload() {
             )}
 
             {/* Transfer to Payee (for transfers) */}
-            {payeeAccounts.length > 0 && (
+            {loanAccounts.length > 0 && !isInterestCategory && (
               <div className="pt-4 border-t">
                 <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
                   <ArrowRightLeft size={14} />
@@ -390,8 +453,10 @@ export default function BankUpload() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Not a transfer</SelectItem>
-                    {payeeAccounts.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                    {loanAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} {acc.person_name ? `(${acc.person_name})` : ""}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
