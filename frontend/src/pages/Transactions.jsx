@@ -140,7 +140,9 @@ export default function Transactions() {
 
   const handleSaveEdit = async () => {
     try {
-      await axios.put(`${API}/transactions/${editingTxn.id}?token=${token}`, editForm);
+      const updateData = { ...editForm };
+      if (updateData.tag === "none") updateData.tag = null;
+      await axios.put(`${API}/transactions/${editingTxn.id}?token=${token}`, updateData);
       toast.success("Transaction updated");
       setShowEditDialog(false);
       setEditingTxn(null);
@@ -435,7 +437,7 @@ export default function Transactions() {
                     <SelectValue placeholder="Select tag" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No tag</SelectItem>
+                    <SelectItem value="none">No tag</SelectItem>
                     {TAGS.map((tag) => (
                       <SelectItem key={tag.value} value={tag.value}>{tag.label}</SelectItem>
                     ))}
