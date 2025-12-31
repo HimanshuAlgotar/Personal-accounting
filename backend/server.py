@@ -141,6 +141,26 @@ class TransactionUpdate(BaseModel):
     ledger_id: Optional[str] = None
     tag: Optional[str] = None
     notes: Optional[str] = None
+    linked_loan_id: Optional[str] = None
+
+class TransferCreate(BaseModel):
+    date: str
+    from_ledger_id: str
+    to_ledger_id: str
+    amount: float
+    description: str
+    notes: Optional[str] = ""
+    linked_loan_id: Optional[str] = None  # For interest payments linked to loans
+
+class ManualTransactionCreate(BaseModel):
+    date: str
+    description: str
+    amount: float
+    transaction_type: str  # debit, credit
+    ledger_id: str
+    tag: Optional[str] = None
+    notes: Optional[str] = ""
+    linked_loan_id: Optional[str] = None  # For interest payments
 
 class TagPattern(BaseModel):
     model_config = ConfigDict(extra="ignore")
