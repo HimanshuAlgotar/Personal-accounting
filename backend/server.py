@@ -387,6 +387,12 @@ async def update_category(category_id: str, data: CategoryCreate, token: str):
 @api_router.delete("/categories/{category_id}")
 async def delete_category(category_id: str, token: str):
     await get_current_user(token)
+    
+    # Check if it's a system category
+    category = await db.categories.find_one({"id": category_id}, {"_id": 0})
+    if category and category.get("name") in SYSTEM_CATEGORIES and category.get("parent_id") is None:
+        raise HTTPException(status_code=400, detail=f"'{category['name']}' is a system category and cannot be deleted")
+    
     # Also delete children
     await db.categories.delete_many({"parent_id": category_id})
     await db.categories.delete_one({"id": category_id})
