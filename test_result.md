@@ -103,6 +103,7 @@ test_plan:
     - "Accounts API"
     - "Transactions API (Double-entry)"
     - "Reports API"
+    - "Frontend Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
