@@ -44,8 +44,9 @@
 }
 
 .nav-item.active {
-    background-color: hsl(222.2, 47.4%, 11.2%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(210, 40%, 96.1%);
+    color: hsl(222.2, 47.4%, 30%);
+    font-weight: 600;
 }
 
 /* Net Worth Card */
