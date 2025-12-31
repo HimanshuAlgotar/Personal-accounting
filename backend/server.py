@@ -21,6 +21,13 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# System default categories - cannot be deleted
+SYSTEM_CATEGORIES = [
+    "Personal", "Food & Dining", "Transport", "Utilities", "Shopping", 
+    "Entertainment", "Health", "Education", "Rent", "Interest Paid", "Other Expense",
+    "Salary", "Interest Received", "Investment Returns", "Other Income"
+]
+
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
