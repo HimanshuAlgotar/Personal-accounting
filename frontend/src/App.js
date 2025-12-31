@@ -15,6 +15,7 @@ import Loans from "@/pages/Loans";
 import CashBook from "@/pages/CashBook";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
+import AddEntry from "@/pages/AddEntry";
 import Layout from "@/components/Layout";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
