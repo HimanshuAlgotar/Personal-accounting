@@ -74,6 +74,21 @@ backend:
         agent: "testing"
         comment: "✅ All reports working: Dashboard shows correct net worth (₹287,500), account balances, recent transactions. Income-expense report shows hierarchical categories correctly. Balance sheet accurate."
 
+  - task: "Specific Fixes Verification"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to verify specific fixes: Reports page income_by_category fix, system categories protection, transaction delete balance fix, linked_loan_id support"
+      - working: true
+        agent: "testing"
+        comment: "✅ ALL SPECIFIC FIXES VERIFIED AND WORKING PERFECTLY. 1) Reports API Fix: GET /api/reports/income-expense correctly returns 'income_by_category' and 'expense_by_category' objects (no more TypeError), 2) System Categories Protection: DELETE /api/categories/{id} for system categories like 'Personal' correctly returns 400 error, 3) Transaction Delete Balance Fix: Account balances correctly revert when transactions are deleted (verified with test transaction), 4) linked_loan_id Support: POST /api/transactions with linked_loan_id field works correctly and stores/retrieves the field properly. All 42/42 tests passed with 100% success rate."
+
 frontend:
   - task: "Frontend Integration"
     implemented: true
