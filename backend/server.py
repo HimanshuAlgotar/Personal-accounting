@@ -335,10 +335,49 @@ async def get_transactions(
     return transactions
 
 @api_router.put("/transactions/{transaction_id}", response_model=Transaction)
-async def update_transaction(transaction_id: str, data: TransactionCreate, token: str):
+async def update_transaction(transaction_id: str, data: TransactionUpdate, token: str):
     await get_current_user(token)
-    await db.transactions.update_one({"id": transaction_id}, {"$set": data.model_dump()})
+    
+    # Get original transaction
+    original = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Build update dict with only provided fields
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Handle ledger balance changes if amount or type changed
+    if "amount" in update_data or "transaction_type" in update_data:
+        old_amount = original["amount"]
+        old_type = original["transaction_type"]
+        new_amount = update_data.get("amount", old_amount)
+        new_type = update_data.get("transaction_type", old_type)
+        
+        # Reverse old balance
+        old_multiplier = -1 if old_type == "debit" else 1
+        await db.ledgers.update_one(
+            {"id": original["ledger_id"]},
+            {"$inc": {"current_balance": -old_amount * old_multiplier}}
+        )
+        
+        # Apply new balance
+        new_multiplier = -1 if new_type == "debit" else 1
+        ledger_id = update_data.get("ledger_id", original["ledger_id"])
+        await db.ledgers.update_one(
+            {"id": ledger_id},
+            {"$inc": {"current_balance": new_amount * new_multiplier}}
+        )
+    
+    await db.transactions.update_one({"id": transaction_id}, {"$set": update_data})
     transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
+    return transaction
+
+@api_router.get("/transactions/{transaction_id}", response_model=Transaction)
+async def get_transaction(transaction_id: str, token: str):
+    await get_current_user(token)
+    transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
 
 @api_router.post("/transactions/bulk-tag")
