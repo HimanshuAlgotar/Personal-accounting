@@ -10,7 +10,8 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import BankUpload from "@/pages/BankUpload";
 import Transactions from "@/pages/Transactions";
-import Ledgers from "@/pages/Ledgers";
+import Accounts from "@/pages/Accounts";
+import Categories from "@/pages/Categories";
 import Loans from "@/pages/Loans";
 import CashBook from "@/pages/CashBook";
 import Reports from "@/pages/Reports";
@@ -32,7 +33,6 @@ const setupAxiosInterceptor = (logoutFn) => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        // Token expired or invalid
         localStorage.removeItem("ledgeros_token");
         toast.error("Session expired. Please login again.");
         window.location.href = "/login";
@@ -57,14 +57,12 @@ const AuthProvider = ({ children }) => {
       const res = await axios.get(`${API}/auth/check`);
       setSetupRequired(res.data.setup_required);
       
-      // Validate existing token if we have one
       const storedToken = localStorage.getItem("ledgeros_token");
       if (storedToken && !res.data.setup_required) {
         try {
           await axios.get(`${API}/reports/dashboard?token=${storedToken}`);
         } catch (e) {
           if (e.response?.status === 401) {
-            // Token is invalid, clear it
             localStorage.removeItem("ledgeros_token");
             setToken(null);
           }
@@ -150,10 +148,17 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      <Route path="/ledgers" element={
+      <Route path="/accounts" element={
         <ProtectedRoute>
           <Layout>
-            <Ledgers />
+            <Accounts />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/categories" element={
+        <ProtectedRoute>
+          <Layout>
+            <Categories />
           </Layout>
         </ProtectedRoute>
       } />
@@ -171,6 +176,13 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
+      <Route path="/add-entry" element={
+        <ProtectedRoute>
+          <Layout>
+            <AddEntry />
+          </Layout>
+        </ProtectedRoute>
+      } />
       <Route path="/reports" element={
         <ProtectedRoute>
           <Layout>
@@ -185,6 +197,8 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
+      {/* Legacy route redirect */}
+      <Route path="/ledgers" element={<Navigate to="/accounts" replace />} />
     </Routes>
   );
 }
