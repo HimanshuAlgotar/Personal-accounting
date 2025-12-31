@@ -130,6 +130,7 @@ class TransactionUpdate(BaseModel):
     account_id: Optional[str] = None
     category_id: Optional[str] = None
     payee_id: Optional[str] = None
+    linked_loan_id: Optional[str] = None
     transaction_type: Optional[str] = None
     notes: Optional[str] = None
 
