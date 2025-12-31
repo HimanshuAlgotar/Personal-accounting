@@ -42,36 +42,54 @@ class TokenResponse(BaseModel):
     token: str
     message: str
 
-class LedgerCreate(BaseModel):
+# Categories (hierarchical)
+class CategoryCreate(BaseModel):
     name: str
-    type: str  # asset, liability, income, expense
-    category: str  # bank, cash, loan_receivable, loan_payable, investment, credit_card, od, personal_expense, etc.
-    description: Optional[str] = ""
-    opening_balance: float = 0.0
-    person_name: Optional[str] = None  # For loan accounts
+    parent_id: Optional[str] = None  # For sub-categories
+    type: str  # income, expense
+    icon: Optional[str] = None
+    color: Optional[str] = None
 
-class Ledger(BaseModel):
+class Category(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    type: str
-    category: str
-    description: str = ""
+    parent_id: Optional[str] = None
+    type: str  # income, expense
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+# Accounts (Bank, Cash, Credit Card, etc.)
+class AccountCreate(BaseModel):
+    name: str
+    account_type: str  # bank, cash, credit_card, investment, loan_receivable, loan_payable
+    opening_balance: float = 0.0
+    description: Optional[str] = ""
+    person_name: Optional[str] = None  # For loan accounts
+
+class Account(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    account_type: str
     opening_balance: float = 0.0
     current_balance: float = 0.0
+    description: str = ""
     person_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
+# Transactions with proper double-entry
 class TransactionCreate(BaseModel):
     date: str
     description: str
     amount: float
-    transaction_type: str  # debit, credit
-    ledger_id: str
-    counter_ledger_id: Optional[str] = None
+    account_id: str  # Source account (bank/cash)
+    category_id: Optional[str] = None  # For income/expense categorization
+    payee_id: Optional[str] = None  # For transfers to another account/person
+    transaction_type: str  # expense, income, transfer
     reference: Optional[str] = ""
     notes: Optional[str] = ""
-    source: str = "manual"  # manual, bank_import
 
 class Transaction(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -79,102 +97,77 @@ class Transaction(BaseModel):
     date: str
     description: str
     amount: float
-    transaction_type: str
-    ledger_id: str
-    counter_ledger_id: Optional[str] = None
+    account_id: str  # Source account
+    category_id: Optional[str] = None
+    payee_id: Optional[str] = None  # For transfers
+    transaction_type: str  # expense, income, transfer
     reference: str = ""
     notes: str = ""
-    source: str = "manual"
-    tag: Optional[str] = None
-    linked_loan_id: Optional[str] = None  # Links interest payments to loans
-    transfer_id: Optional[str] = None  # Links paired transfer transactions
+    source: str = "manual"  # manual, bank_import
+    transfer_pair_id: Optional[str] = None  # Links paired transfer transactions
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class BulkTagUpdate(BaseModel):
-    transaction_ids: List[str]
-    tag: str
-    ledger_id: Optional[str] = None
-
-class LoanCreate(BaseModel):
-    person_name: str
-    loan_type: str  # given, taken
-    principal: float
-    interest_rate: float = 0.0
-    interest_type: str = "simple"  # simple, compound
-    start_date: str
-    notes: Optional[str] = ""
-    ledger_id: Optional[str] = None
-
-class Loan(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    person_name: str
-    loan_type: str
-    principal: float
-    interest_rate: float = 0.0
-    interest_type: str = "simple"  # simple, compound
-    start_date: str
-    notes: str = ""
-    ledger_id: Optional[str] = None
-    total_repaid: float = 0.0
-    interest_paid: float = 0.0
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class LoanRepayment(BaseModel):
-    loan_id: str
-    amount: float
-    date: str
-    is_interest: bool = False
-    notes: Optional[str] = ""
-
-class LoanUpdate(BaseModel):
-    person_name: Optional[str] = None
-    principal: Optional[float] = None
-    interest_rate: Optional[float] = None
-    interest_type: Optional[str] = "simple"  # simple, compound
-    start_date: Optional[str] = None
-    notes: Optional[str] = None
 
 class TransactionUpdate(BaseModel):
     date: Optional[str] = None
     description: Optional[str] = None
     amount: Optional[float] = None
+    account_id: Optional[str] = None
+    category_id: Optional[str] = None
+    payee_id: Optional[str] = None
     transaction_type: Optional[str] = None
-    ledger_id: Optional[str] = None
-    tag: Optional[str] = None
     notes: Optional[str] = None
-    linked_loan_id: Optional[str] = None
 
-class TransferCreate(BaseModel):
-    date: str
-    from_ledger_id: str
-    to_ledger_id: str
-    amount: float
-    description: str
-    notes: Optional[str] = ""
-    linked_loan_id: Optional[str] = None  # For interest payments linked to loans
+# For bank statement upload - tagging
+class TagTransactionRequest(BaseModel):
+    category_id: Optional[str] = None
+    payee_id: Optional[str] = None
 
-class ManualTransactionCreate(BaseModel):
-    date: str
-    description: str
-    amount: float
-    transaction_type: str  # debit, credit
-    ledger_id: str
-    tag: Optional[str] = None
+class BulkTagRequest(BaseModel):
+    transaction_ids: List[str]
+    category_id: Optional[str] = None
+    payee_id: Optional[str] = None
+
+# Loans
+class LoanCreate(BaseModel):
+    person_name: str
+    loan_type: str  # given, taken
+    principal: float
+    interest_rate: float = 0.0
+    start_date: str
     notes: Optional[str] = ""
-    linked_loan_id: Optional[str] = None  # For interest payments
+
+class Loan(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    person_name: str
+    loan_type: str  # given, taken
+    principal: float
+    interest_rate: float = 0.0
+    start_date: str
+    notes: str = ""
+    account_id: Optional[str] = None  # Linked account
+    total_repaid: float = 0.0
+    interest_paid: float = 0.0
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class LoanUpdate(BaseModel):
+    person_name: Optional[str] = None
+    principal: Optional[float] = None
+    interest_rate: Optional[float] = None
+    start_date: Optional[str] = None
+    notes: Optional[str] = None
+
+class SettingsUpdate(BaseModel):
+    current_password: str
+    new_password: str
 
 class TagPattern(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     pattern: str
-    tag: str
-    ledger_id: Optional[str] = None
+    category_id: Optional[str] = None
+    payee_id: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class SettingsUpdate(BaseModel):
-    current_password: str
-    new_password: str
 
 # ================== AUTH ==================
 
@@ -192,6 +185,72 @@ async def get_current_user(token: str = None):
         raise HTTPException(status_code=401, detail="Session expired. Please login again.")
     return session
 
+async def create_default_data():
+    """Create default categories and accounts"""
+    # Default Expense Categories
+    expense_categories = [
+        {"name": "Personal", "type": "expense", "icon": "user", "color": "#6366f1"},
+        {"name": "Food & Dining", "type": "expense", "icon": "utensils", "color": "#f59e0b"},
+        {"name": "Transport", "type": "expense", "icon": "car", "color": "#3b82f6"},
+        {"name": "Utilities", "type": "expense", "icon": "zap", "color": "#10b981"},
+        {"name": "Shopping", "type": "expense", "icon": "shopping-bag", "color": "#ec4899"},
+        {"name": "Entertainment", "type": "expense", "icon": "film", "color": "#8b5cf6"},
+        {"name": "Health", "type": "expense", "icon": "heart", "color": "#ef4444"},
+        {"name": "Education", "type": "expense", "icon": "book", "color": "#14b8a6"},
+        {"name": "Rent", "type": "expense", "icon": "home", "color": "#f97316"},
+        {"name": "Interest Paid", "type": "expense", "icon": "percent", "color": "#dc2626"},
+        {"name": "Other Expense", "type": "expense", "icon": "more-horizontal", "color": "#6b7280"},
+    ]
+    
+    # Default Income Categories
+    income_categories = [
+        {"name": "Salary", "type": "income", "icon": "briefcase", "color": "#22c55e"},
+        {"name": "Interest Received", "type": "income", "icon": "percent", "color": "#10b981"},
+        {"name": "Investment Returns", "type": "income", "icon": "trending-up", "color": "#06b6d4"},
+        {"name": "Other Income", "type": "income", "icon": "more-horizontal", "color": "#84cc16"},
+    ]
+    
+    # Create categories
+    for cat_data in expense_categories + income_categories:
+        existing = await db.categories.find_one({"name": cat_data["name"], "type": cat_data["type"]}, {"_id": 0})
+        if not existing:
+            cat = Category(**cat_data)
+            await db.categories.insert_one(cat.model_dump())
+    
+    # Create some common sub-categories
+    personal_cat = await db.categories.find_one({"name": "Personal", "type": "expense"}, {"_id": 0})
+    if personal_cat:
+        sub_cats = ["Uber/Ola", "Subscription", "Grooming", "Misc"]
+        for sub_name in sub_cats:
+            existing = await db.categories.find_one({"name": sub_name, "parent_id": personal_cat["id"]}, {"_id": 0})
+            if not existing:
+                sub = Category(name=sub_name, parent_id=personal_cat["id"], type="expense")
+                await db.categories.insert_one(sub.model_dump())
+    
+    food_cat = await db.categories.find_one({"name": "Food & Dining", "type": "expense"}, {"_id": 0})
+    if food_cat:
+        sub_cats = ["Restaurants", "Groceries", "Zomato/Swiggy"]
+        for sub_name in sub_cats:
+            existing = await db.categories.find_one({"name": sub_name, "parent_id": food_cat["id"]}, {"_id": 0})
+            if not existing:
+                sub = Category(name=sub_name, parent_id=food_cat["id"], type="expense")
+                await db.categories.insert_one(sub.model_dump())
+    
+    utilities_cat = await db.categories.find_one({"name": "Utilities", "type": "expense"}, {"_id": 0})
+    if utilities_cat:
+        sub_cats = ["Electricity", "Internet", "Water", "Gas", "Mobile Recharge"]
+        for sub_name in sub_cats:
+            existing = await db.categories.find_one({"name": sub_name, "parent_id": utilities_cat["id"]}, {"_id": 0})
+            if not existing:
+                sub = Category(name=sub_name, parent_id=utilities_cat["id"], type="expense")
+                await db.categories.insert_one(sub.model_dump())
+    
+    # Default Cash account
+    cash_account = await db.accounts.find_one({"name": "Cash", "account_type": "cash"}, {"_id": 0})
+    if not cash_account:
+        cash = Account(name="Cash", account_type="cash", description="Cash in hand")
+        await db.accounts.insert_one(cash.model_dump())
+
 @api_router.post("/auth/setup", response_model=TokenResponse)
 async def setup_password(data: UserCreate):
     existing = await db.users.find_one({}, {"_id": 0})
@@ -205,18 +264,8 @@ async def setup_password(data: UserCreate):
     }
     await db.users.insert_one(user_doc)
     
-    # Create default ledgers
-    default_ledgers = [
-        {"name": "Cash", "type": "asset", "category": "cash", "description": "Cash in hand"},
-        {"name": "Personal Expenses", "type": "expense", "category": "personal_expense", "description": "Day to day expenses"},
-        {"name": "Personal Income", "type": "income", "category": "personal_income", "description": "Salary and other income"},
-        {"name": "Interest Income", "type": "income", "category": "interest_income", "description": "Interest received on loans given"},
-        {"name": "Interest Expense", "type": "expense", "category": "interest_expense", "description": "Interest paid on loans taken"},
-    ]
-    
-    for ledger in default_ledgers:
-        ledger_obj = Ledger(**ledger)
-        await db.ledgers.insert_one(ledger_obj.model_dump())
+    # Create default categories and accounts
+    await create_default_data()
     
     token = generate_token()
     await db.sessions.insert_one({"token": token, "created_at": datetime.now(timezone.utc).isoformat()})
@@ -264,66 +313,116 @@ async def reset_all_data(token: str):
     await get_current_user(token)
     
     # Drop all collections except users and sessions
-    await db.ledgers.drop()
+    await db.accounts.drop()
+    await db.categories.drop()
     await db.transactions.drop()
     await db.loans.drop()
     await db.tag_patterns.drop()
     
-    # Create default ledgers again
-    default_ledgers = [
-        {"name": "Cash", "type": "asset", "category": "cash", "description": "Cash in hand"},
-        {"name": "Personal Expenses", "type": "expense", "category": "personal_expense", "description": "Day to day expenses"},
-        {"name": "Personal Income", "type": "income", "category": "personal_income", "description": "Salary and other income"},
-        {"name": "Interest Income", "type": "income", "category": "interest_income", "description": "Interest received on loans given"},
-        {"name": "Interest Expense", "type": "expense", "category": "interest_expense", "description": "Interest paid on loans taken"},
-    ]
+    # Re-create default data
+    await create_default_data()
     
-    for ledger in default_ledgers:
-        ledger_obj = Ledger(**ledger)
-        await db.ledgers.insert_one(ledger_obj.model_dump())
-    
-    return {"message": "All data reset successfully. Default ledgers created."}
+    return {"message": "All data reset successfully. Default categories created."}
 
-# ================== LEDGERS ==================
+# ================== CATEGORIES ==================
 
-@api_router.post("/ledgers", response_model=Ledger)
-async def create_ledger(data: LedgerCreate, token: str):
+@api_router.post("/categories", response_model=Category)
+async def create_category(data: CategoryCreate, token: str):
     await get_current_user(token)
-    ledger = Ledger(**data.model_dump(), current_balance=data.opening_balance)
-    await db.ledgers.insert_one(ledger.model_dump())
-    return ledger
+    category = Category(**data.model_dump())
+    await db.categories.insert_one(category.model_dump())
+    return category
 
-@api_router.get("/ledgers", response_model=List[Ledger])
-async def get_ledgers(token: str, type: Optional[str] = None, category: Optional[str] = None):
+@api_router.get("/categories")
+async def get_categories(token: str, type: Optional[str] = None, include_children: bool = True):
     await get_current_user(token)
     query = {}
     if type:
         query["type"] = type
-    if category:
-        query["category"] = category
-    ledgers = await db.ledgers.find(query, {"_id": 0}).to_list(1000)
-    return ledgers
+    
+    categories = await db.categories.find(query, {"_id": 0}).to_list(1000)
+    
+    if include_children:
+        # Build hierarchical structure
+        parent_cats = [c for c in categories if c.get("parent_id") is None]
+        for parent in parent_cats:
+            parent["children"] = [c for c in categories if c.get("parent_id") == parent["id"]]
+        return parent_cats
+    
+    return categories
 
-@api_router.get("/ledgers/{ledger_id}", response_model=Ledger)
-async def get_ledger(ledger_id: str, token: str):
+@api_router.get("/categories/flat")
+async def get_categories_flat(token: str, type: Optional[str] = None):
+    """Get all categories in flat list"""
     await get_current_user(token)
-    ledger = await db.ledgers.find_one({"id": ledger_id}, {"_id": 0})
-    if not ledger:
-        raise HTTPException(status_code=404, detail="Ledger not found")
-    return ledger
+    query = {}
+    if type:
+        query["type"] = type
+    categories = await db.categories.find(query, {"_id": 0}).to_list(1000)
+    return categories
 
-@api_router.put("/ledgers/{ledger_id}", response_model=Ledger)
-async def update_ledger(ledger_id: str, data: LedgerCreate, token: str):
+@api_router.put("/categories/{category_id}", response_model=Category)
+async def update_category(category_id: str, data: CategoryCreate, token: str):
     await get_current_user(token)
-    await db.ledgers.update_one({"id": ledger_id}, {"$set": data.model_dump()})
-    ledger = await db.ledgers.find_one({"id": ledger_id}, {"_id": 0})
-    return ledger
+    await db.categories.update_one({"id": category_id}, {"$set": data.model_dump()})
+    category = await db.categories.find_one({"id": category_id}, {"_id": 0})
+    return category
 
-@api_router.delete("/ledgers/{ledger_id}")
-async def delete_ledger(ledger_id: str, token: str):
+@api_router.delete("/categories/{category_id}")
+async def delete_category(category_id: str, token: str):
     await get_current_user(token)
-    await db.ledgers.delete_one({"id": ledger_id})
-    return {"message": "Ledger deleted"}
+    # Also delete children
+    await db.categories.delete_many({"parent_id": category_id})
+    await db.categories.delete_one({"id": category_id})
+    return {"message": "Category deleted"}
+
+# ================== ACCOUNTS ==================
+
+@api_router.post("/accounts", response_model=Account)
+async def create_account(data: AccountCreate, token: str):
+    await get_current_user(token)
+    account = Account(**data.model_dump(), current_balance=data.opening_balance)
+    await db.accounts.insert_one(account.model_dump())
+    return account
+
+@api_router.get("/accounts", response_model=List[Account])
+async def get_accounts(token: str, account_type: Optional[str] = None):
+    await get_current_user(token)
+    query = {}
+    if account_type:
+        query["account_type"] = account_type
+    accounts = await db.accounts.find(query, {"_id": 0}).to_list(1000)
+    return accounts
+
+@api_router.get("/accounts/{account_id}", response_model=Account)
+async def get_account(account_id: str, token: str):
+    await get_current_user(token)
+    account = await db.accounts.find_one({"id": account_id}, {"_id": 0})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return account
+
+@api_router.put("/accounts/{account_id}", response_model=Account)
+async def update_account(account_id: str, data: AccountCreate, token: str):
+    await get_current_user(token)
+    update_data = data.model_dump()
+    # Don't update current_balance directly
+    if "opening_balance" in update_data:
+        # Recalculate current_balance based on opening_balance change
+        old_account = await db.accounts.find_one({"id": account_id}, {"_id": 0})
+        if old_account:
+            diff = update_data["opening_balance"] - old_account["opening_balance"]
+            update_data["current_balance"] = old_account["current_balance"] + diff
+    
+    await db.accounts.update_one({"id": account_id}, {"$set": update_data})
+    account = await db.accounts.find_one({"id": account_id}, {"_id": 0})
+    return account
+
+@api_router.delete("/accounts/{account_id}")
+async def delete_account(account_id: str, token: str):
+    await get_current_user(token)
+    await db.accounts.delete_one({"id": account_id})
+    return {"message": "Account deleted"}
 
 # ================== TRANSACTIONS ==================
 
@@ -333,19 +432,22 @@ async def create_transaction(data: TransactionCreate, token: str):
     transaction = Transaction(**data.model_dump())
     await db.transactions.insert_one(transaction.model_dump())
     
-    # Update ledger balance
-    multiplier = -1 if data.transaction_type == "debit" else 1
-    await db.ledgers.update_one(
-        {"id": data.ledger_id},
-        {"$inc": {"current_balance": data.amount * multiplier}}
-    )
+    # Update account balance
+    if data.transaction_type == "expense":
+        await db.accounts.update_one({"id": data.account_id}, {"$inc": {"current_balance": -data.amount}})
+    elif data.transaction_type == "income":
+        await db.accounts.update_one({"id": data.account_id}, {"$inc": {"current_balance": data.amount}})
+    elif data.transaction_type == "transfer" and data.payee_id:
+        # Debit from source, credit to destination
+        await db.accounts.update_one({"id": data.account_id}, {"$inc": {"current_balance": -data.amount}})
+        await db.accounts.update_one({"id": data.payee_id}, {"$inc": {"current_balance": data.amount}})
     
-    # Save pattern for auto-tagging if tag is set
-    if transaction.tag:
-        pattern = re.sub(r'\d+', '', data.description)[:50]  # Remove numbers, take first 50 chars
+    # Save pattern for auto-tagging
+    if data.category_id or data.payee_id:
+        pattern = re.sub(r'\d+', '', data.description)[:50]
         existing = await db.tag_patterns.find_one({"pattern": pattern}, {"_id": 0})
         if not existing:
-            tag_pattern = TagPattern(pattern=pattern, tag=transaction.tag, ledger_id=data.ledger_id)
+            tag_pattern = TagPattern(pattern=pattern, category_id=data.category_id, payee_id=data.payee_id)
             await db.tag_patterns.insert_one(tag_pattern.model_dump())
     
     return transaction
@@ -353,24 +455,29 @@ async def create_transaction(data: TransactionCreate, token: str):
 @api_router.get("/transactions", response_model=List[Transaction])
 async def get_transactions(
     token: str,
-    ledger_id: Optional[str] = None,
-    tag: Optional[str] = None,
+    account_id: Optional[str] = None,
+    category_id: Optional[str] = None,
+    transaction_type: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    source: Optional[str] = None,
     untagged: Optional[bool] = None,
     limit: int = 500
 ):
     await get_current_user(token)
     query = {}
-    if ledger_id:
-        query["ledger_id"] = ledger_id
-    if tag:
-        query["tag"] = tag
-    if source:
-        query["source"] = source
+    
+    if account_id:
+        query["$or"] = [{"account_id": account_id}, {"payee_id": account_id}]
+    if category_id:
+        # Include children categories
+        children = await db.categories.find({"parent_id": category_id}, {"_id": 0}).to_list(100)
+        child_ids = [c["id"] for c in children]
+        query["category_id"] = {"$in": [category_id] + child_ids}
+    if transaction_type:
+        query["transaction_type"] = transaction_type
     if untagged:
-        query["tag"] = None
+        query["category_id"] = None
+        query["payee_id"] = None
     if start_date:
         query["date"] = {"$gte": start_date}
     if end_date:
@@ -382,44 +489,6 @@ async def get_transactions(
     transactions = await db.transactions.find(query, {"_id": 0}).sort("date", -1).to_list(limit)
     return transactions
 
-@api_router.put("/transactions/{transaction_id}", response_model=Transaction)
-async def update_transaction(transaction_id: str, data: TransactionUpdate, token: str):
-    await get_current_user(token)
-    
-    # Get original transaction
-    original = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
-    if not original:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    
-    # Build update dict with only provided fields
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    
-    # Handle ledger balance changes if amount or type changed
-    if "amount" in update_data or "transaction_type" in update_data:
-        old_amount = original["amount"]
-        old_type = original["transaction_type"]
-        new_amount = update_data.get("amount", old_amount)
-        new_type = update_data.get("transaction_type", old_type)
-        
-        # Reverse old balance
-        old_multiplier = -1 if old_type == "debit" else 1
-        await db.ledgers.update_one(
-            {"id": original["ledger_id"]},
-            {"$inc": {"current_balance": -old_amount * old_multiplier}}
-        )
-        
-        # Apply new balance
-        new_multiplier = -1 if new_type == "debit" else 1
-        ledger_id = update_data.get("ledger_id", original["ledger_id"])
-        await db.ledgers.update_one(
-            {"id": ledger_id},
-            {"$inc": {"current_balance": new_amount * new_multiplier}}
-        )
-    
-    await db.transactions.update_one({"id": transaction_id}, {"$set": update_data})
-    transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
-    return transaction
-
 @api_router.get("/transactions/{transaction_id}", response_model=Transaction)
 async def get_transaction(transaction_id: str, token: str):
     await get_current_user(token)
@@ -428,129 +497,97 @@ async def get_transaction(transaction_id: str, token: str):
         raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
 
-@api_router.post("/transactions/bulk-tag")
-async def bulk_tag_transactions(data: BulkTagUpdate, token: str):
+@api_router.put("/transactions/{transaction_id}", response_model=Transaction)
+async def update_transaction(transaction_id: str, data: TransactionUpdate, token: str):
     await get_current_user(token)
-    update_data = {"tag": data.tag}
-    if data.ledger_id:
-        update_data["ledger_id"] = data.ledger_id
     
-    await db.transactions.update_many(
-        {"id": {"$in": data.transaction_ids}},
-        {"$set": update_data}
-    )
+    original = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Transaction not found")
     
-    # Save patterns for auto-tagging
-    transactions = await db.transactions.find({"id": {"$in": data.transaction_ids}}, {"_id": 0}).to_list(100)
-    for txn in transactions:
-        pattern = re.sub(r'\d+', '', txn["description"])[:50]
-        existing = await db.tag_patterns.find_one({"pattern": pattern}, {"_id": 0})
-        if not existing:
-            tag_pattern = TagPattern(pattern=pattern, tag=data.tag, ledger_id=data.ledger_id)
-            await db.tag_patterns.insert_one(tag_pattern.model_dump())
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
-    return {"message": f"Tagged {len(data.transaction_ids)} transactions"}
+    # Handle balance changes
+    if "amount" in update_data or "transaction_type" in update_data or "account_id" in update_data:
+        old_amount = original["amount"]
+        old_type = original["transaction_type"]
+        old_account = original["account_id"]
+        
+        new_amount = update_data.get("amount", old_amount)
+        new_type = update_data.get("transaction_type", old_type)
+        new_account = update_data.get("account_id", old_account)
+        
+        # Reverse old effect
+        if old_type == "expense":
+            await db.accounts.update_one({"id": old_account}, {"$inc": {"current_balance": old_amount}})
+        elif old_type == "income":
+            await db.accounts.update_one({"id": old_account}, {"$inc": {"current_balance": -old_amount}})
+        
+        # Apply new effect
+        if new_type == "expense":
+            await db.accounts.update_one({"id": new_account}, {"$inc": {"current_balance": -new_amount}})
+        elif new_type == "income":
+            await db.accounts.update_one({"id": new_account}, {"$inc": {"current_balance": new_amount}})
+    
+    await db.transactions.update_one({"id": transaction_id}, {"$set": update_data})
+    transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
+    
+    # Save new pattern
+    if update_data.get("category_id") or update_data.get("payee_id"):
+        pattern = re.sub(r'\d+', '', original["description"])[:50]
+        await db.tag_patterns.delete_one({"pattern": pattern})
+        tag_pattern = TagPattern(
+            pattern=pattern, 
+            category_id=update_data.get("category_id", original.get("category_id")),
+            payee_id=update_data.get("payee_id", original.get("payee_id"))
+        )
+        await db.tag_patterns.insert_one(tag_pattern.model_dump())
+    
+    return transaction
 
 @api_router.delete("/transactions/{transaction_id}")
 async def delete_transaction(transaction_id: str, token: str):
     await get_current_user(token)
     transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
     if transaction:
-        # Reverse ledger balance
-        multiplier = 1 if transaction["transaction_type"] == "debit" else -1
-        await db.ledgers.update_one(
-            {"id": transaction["ledger_id"]},
-            {"$inc": {"current_balance": transaction["amount"] * multiplier}}
-        )
+        # Reverse balance effect
+        if transaction["transaction_type"] == "expense":
+            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": transaction["amount"]}})
+        elif transaction["transaction_type"] == "income":
+            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": -transaction["amount"]}})
+        elif transaction["transaction_type"] == "transfer" and transaction.get("payee_id"):
+            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": transaction["amount"]}})
+            await db.accounts.update_one({"id": transaction["payee_id"]}, {"$inc": {"current_balance": -transaction["amount"]}})
+    
     await db.transactions.delete_one({"id": transaction_id})
     return {"message": "Transaction deleted"}
 
-# ================== TRANSFERS & MANUAL ENTRIES ==================
-
-@api_router.post("/transfers")
-async def create_transfer(data: TransferCreate, token: str):
-    """Create a transfer between two accounts - creates paired transactions"""
+@api_router.post("/transactions/bulk-tag")
+async def bulk_tag_transactions(data: BulkTagRequest, token: str):
     await get_current_user(token)
     
-    transfer_id = str(uuid.uuid4())
+    update_data = {}
+    if data.category_id:
+        update_data["category_id"] = data.category_id
+    if data.payee_id:
+        update_data["payee_id"] = data.payee_id
     
-    # Debit from source account
-    debit_txn = Transaction(
-        date=data.date,
-        description=data.description,
-        amount=data.amount,
-        transaction_type="debit",
-        ledger_id=data.from_ledger_id,
-        notes=data.notes,
-        source="transfer",
-        tag="transfer",
-        transfer_id=transfer_id,
-        linked_loan_id=data.linked_loan_id
-    )
-    await db.transactions.insert_one(debit_txn.model_dump())
-    
-    # Update source ledger balance (debit = reduce)
-    await db.ledgers.update_one(
-        {"id": data.from_ledger_id},
-        {"$inc": {"current_balance": -data.amount}}
-    )
-    
-    # Credit to destination account
-    credit_txn = Transaction(
-        date=data.date,
-        description=data.description,
-        amount=data.amount,
-        transaction_type="credit",
-        ledger_id=data.to_ledger_id,
-        notes=data.notes,
-        source="transfer",
-        tag="transfer",
-        transfer_id=transfer_id,
-        linked_loan_id=data.linked_loan_id
-    )
-    await db.transactions.insert_one(credit_txn.model_dump())
-    
-    # Update destination ledger balance (credit = increase)
-    await db.ledgers.update_one(
-        {"id": data.to_ledger_id},
-        {"$inc": {"current_balance": data.amount}}
-    )
-    
-    return {"message": "Transfer created", "transfer_id": transfer_id}
-
-@api_router.post("/transactions/manual")
-async def create_manual_transaction(data: ManualTransactionCreate, token: str):
-    """Create a single manual transaction (income/expense)"""
-    await get_current_user(token)
-    
-    transaction = Transaction(
-        date=data.date,
-        description=data.description,
-        amount=data.amount,
-        transaction_type=data.transaction_type,
-        ledger_id=data.ledger_id,
-        notes=data.notes,
-        source="manual",
-        tag=data.tag,
-        linked_loan_id=data.linked_loan_id
-    )
-    await db.transactions.insert_one(transaction.model_dump())
-    
-    # Update ledger balance
-    multiplier = -1 if data.transaction_type == "debit" else 1
-    await db.ledgers.update_one(
-        {"id": data.ledger_id},
-        {"$inc": {"current_balance": data.amount * multiplier}}
-    )
-    
-    # If linked to loan and is interest, update loan interest_paid
-    if data.linked_loan_id and data.tag in ["interest_paid", "interest_received"]:
-        await db.loans.update_one(
-            {"id": data.linked_loan_id},
-            {"$inc": {"interest_paid": data.amount}}
+    if update_data:
+        await db.transactions.update_many(
+            {"id": {"$in": data.transaction_ids}},
+            {"$set": update_data}
         )
+        
+        # Save patterns
+        transactions = await db.transactions.find({"id": {"$in": data.transaction_ids}}, {"_id": 0}).to_list(100)
+        for txn in transactions:
+            pattern = re.sub(r'\d+', '', txn["description"])[:50]
+            existing = await db.tag_patterns.find_one({"pattern": pattern}, {"_id": 0})
+            if not existing:
+                tag_pattern = TagPattern(pattern=pattern, category_id=data.category_id, payee_id=data.payee_id)
+                await db.tag_patterns.insert_one(tag_pattern.model_dump())
     
-    return transaction
+    return {"message": f"Tagged {len(data.transaction_ids)} transactions"}
 
 # ================== BANK STATEMENT UPLOAD ==================
 
@@ -561,15 +598,16 @@ async def apply_auto_tags(transactions: List[Dict]) -> List[Dict]:
         clean_desc = re.sub(r'\d+', '', txn["description"])[:50]
         for pattern in patterns:
             if pattern["pattern"] in clean_desc:
-                txn["tag"] = pattern["tag"]
-                if pattern.get("ledger_id"):
-                    txn["suggested_ledger_id"] = pattern["ledger_id"]
+                if pattern.get("category_id"):
+                    txn["category_id"] = pattern["category_id"]
+                if pattern.get("payee_id"):
+                    txn["payee_id"] = pattern["payee_id"]
                 break
     
     return transactions
 
 @api_router.post("/upload/bank-statement")
-async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = None, token: str = None):
+async def upload_bank_statement(file: UploadFile = File(...), account_id: str = None, token: str = None):
     await get_current_user(token)
     
     content = await file.read()
@@ -578,7 +616,7 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
         # Read HDFC bank statement
         df = pd.read_excel(io.BytesIO(content), header=None)
         
-        # Find the header row (contains 'Date', 'Narration', etc.)
+        # Find the header row
         header_row = None
         for idx, row in df.iterrows():
             row_str = ' '.join(str(x) for x in row.values if pd.notna(x))
@@ -589,10 +627,7 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
         if header_row is None:
             raise HTTPException(status_code=400, detail="Could not find transaction headers in file")
         
-        # Re-read with proper header
         df = pd.read_excel(io.BytesIO(content), header=header_row)
-        
-        # Skip separator rows
         df = df[~df['Date'].astype(str).str.contains(r'\*+', regex=True, na=True)]
         df = df.dropna(subset=['Date'])
         
@@ -603,7 +638,6 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
                 if pd.isna(date_val) or str(date_val).strip() == '':
                     continue
                 
-                # Parse date (DD/MM/YY format)
                 if isinstance(date_val, str):
                     date_parts = date_val.split('/')
                     if len(date_parts) == 3:
@@ -621,7 +655,6 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
                 deposit = row.get('Deposit Amt.', 0)
                 reference = str(row.get('Chq./Ref.No.', ''))
                 
-                # Clean up values
                 withdrawal = float(withdrawal) if pd.notna(withdrawal) else 0
                 deposit = float(deposit) if pd.notna(deposit) else 0
                 
@@ -631,11 +664,12 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
                         "date": date_str,
                         "description": narration,
                         "amount": withdrawal,
-                        "transaction_type": "debit",
-                        "ledger_id": ledger_id or "",
+                        "account_id": account_id or "",
+                        "category_id": None,
+                        "payee_id": None,
+                        "transaction_type": "expense",
                         "reference": reference,
                         "source": "bank_import",
-                        "tag": None,
                         "created_at": datetime.now(timezone.utc).isoformat()
                     }
                     transactions.append(txn)
@@ -646,11 +680,12 @@ async def upload_bank_statement(file: UploadFile = File(...), ledger_id: str = N
                         "date": date_str,
                         "description": narration,
                         "amount": deposit,
-                        "transaction_type": "credit",
-                        "ledger_id": ledger_id or "",
+                        "account_id": account_id or "",
+                        "category_id": None,
+                        "payee_id": None,
+                        "transaction_type": "income",
                         "reference": reference,
                         "source": "bank_import",
-                        "tag": None,
                         "created_at": datetime.now(timezone.utc).isoformat()
                     }
                     transactions.append(txn)
@@ -675,26 +710,24 @@ async def save_uploaded_transactions(transactions: List[Dict[str, Any]], token: 
     if not transactions:
         return {"message": "No transactions to save", "count": 0}
     
-    # Insert transactions
     for txn in transactions:
         if "_id" in txn:
             del txn["_id"]
         await db.transactions.insert_one(txn)
         
-        # Update ledger balance if ledger_id is set
-        if txn.get("ledger_id"):
-            multiplier = -1 if txn["transaction_type"] == "debit" else 1
-            await db.ledgers.update_one(
-                {"id": txn["ledger_id"]},
-                {"$inc": {"current_balance": txn["amount"] * multiplier}}
-            )
+        # Update account balance
+        if txn.get("account_id"):
+            if txn["transaction_type"] == "expense":
+                await db.accounts.update_one({"id": txn["account_id"]}, {"$inc": {"current_balance": -txn["amount"]}})
+            elif txn["transaction_type"] == "income":
+                await db.accounts.update_one({"id": txn["account_id"]}, {"$inc": {"current_balance": txn["amount"]}})
         
         # Save tag pattern
-        if txn.get("tag"):
+        if txn.get("category_id") or txn.get("payee_id"):
             pattern = re.sub(r'\d+', '', txn["description"])[:50]
             existing = await db.tag_patterns.find_one({"pattern": pattern}, {"_id": 0})
             if not existing:
-                tag_pattern = TagPattern(pattern=pattern, tag=txn["tag"], ledger_id=txn.get("ledger_id"))
+                tag_pattern = TagPattern(pattern=pattern, category_id=txn.get("category_id"), payee_id=txn.get("payee_id"))
                 await db.tag_patterns.insert_one(tag_pattern.model_dump())
     
     return {"message": f"Saved {len(transactions)} transactions", "count": len(transactions)}
@@ -705,23 +738,20 @@ async def save_uploaded_transactions(transactions: List[Dict[str, Any]], token: 
 async def create_loan(data: LoanCreate, token: str):
     await get_current_user(token)
     
-    # Create a ledger for this loan
-    ledger_type = "asset" if data.loan_type == "given" else "liability"
-    ledger_category = "loan_receivable" if data.loan_type == "given" else "loan_payable"
-    
-    ledger = Ledger(
+    # Create associated account
+    account_type = "loan_receivable" if data.loan_type == "given" else "loan_payable"
+    account = Account(
         name=f"Loan - {data.person_name}",
-        type=ledger_type,
-        category=ledger_category,
+        account_type=account_type,
         description=f"Loan {data.loan_type} to/from {data.person_name}",
         person_name=data.person_name,
         opening_balance=data.principal,
         current_balance=data.principal
     )
-    await db.ledgers.insert_one(ledger.model_dump())
+    await db.accounts.insert_one(account.model_dump())
     
     loan_data = data.model_dump()
-    loan_data['ledger_id'] = ledger.id
+    loan_data['account_id'] = account.id
     loan = Loan(**loan_data)
     await db.loans.insert_one(loan.model_dump())
     return loan
@@ -745,7 +775,6 @@ async def get_loan(loan_id: str, token: str):
 
 @api_router.get("/loans/{loan_id}/interest")
 async def calculate_loan_interest(loan_id: str, token: str, as_of_date: Optional[str] = None):
-    """Calculate accrued interest for a loan"""
     await get_current_user(token)
     loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
     if not loan:
@@ -754,23 +783,15 @@ async def calculate_loan_interest(loan_id: str, token: str, as_of_date: Optional
     if loan["interest_rate"] == 0:
         return {"accrued_interest": 0, "total_due": loan["principal"] - loan["total_repaid"]}
     
-    # Calculate days elapsed
     start = datetime.strptime(loan["start_date"], "%Y-%m-%d")
     end = datetime.strptime(as_of_date, "%Y-%m-%d") if as_of_date else datetime.now(timezone.utc).replace(tzinfo=None)
     days_elapsed = (end - start).days
     
     principal = loan["principal"]
-    rate = loan["interest_rate"] / 100  # Convert to decimal
-    interest_type = loan.get("interest_type", "simple")
+    rate = loan["interest_rate"] / 100
     
-    if interest_type == "compound":
-        # Compound interest (monthly compounding)
-        months = days_elapsed / 30
-        accrued_interest = principal * ((1 + rate/12) ** months - 1)
-    else:
-        # Simple interest
-        accrued_interest = principal * rate * (days_elapsed / 365)
-    
+    # Simple interest
+    accrued_interest = principal * rate * (days_elapsed / 365)
     outstanding_principal = loan["principal"] - loan["total_repaid"]
     total_due = outstanding_principal + accrued_interest - loan["interest_paid"]
     
@@ -778,7 +799,6 @@ async def calculate_loan_interest(loan_id: str, token: str, as_of_date: Optional
         "principal": loan["principal"],
         "outstanding_principal": outstanding_principal,
         "interest_rate": loan["interest_rate"],
-        "interest_type": interest_type,
         "days_elapsed": days_elapsed,
         "accrued_interest": round(accrued_interest, 2),
         "interest_paid": loan["interest_paid"],
@@ -796,65 +816,21 @@ async def update_loan(loan_id: str, data: LoanUpdate, token: str):
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     if update_data:
         await db.loans.update_one({"id": loan_id}, {"$set": update_data})
-        # Update ledger name if person name changed
-        if "person_name" in update_data and loan.get("ledger_id"):
-            await db.ledgers.update_one(
-                {"id": loan["ledger_id"]},
+        if "person_name" in update_data and loan.get("account_id"):
+            await db.accounts.update_one(
+                {"id": loan["account_id"]},
                 {"$set": {"name": f"Loan - {update_data['person_name']}", "person_name": update_data['person_name']}}
             )
     
     updated_loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
     return updated_loan
 
-@api_router.post("/loans/repayment")
-async def record_repayment(data: LoanRepayment, token: str):
-    await get_current_user(token)
-    
-    loan = await db.loans.find_one({"id": data.loan_id}, {"_id": 0})
-    if not loan:
-        raise HTTPException(status_code=404, detail="Loan not found")
-    
-    # Update loan
-    update_field = "interest_paid" if data.is_interest else "total_repaid"
-    await db.loans.update_one(
-        {"id": data.loan_id},
-        {"$inc": {update_field: data.amount}}
-    )
-    
-    # Update ledger balance
-    if loan.get("ledger_id"):
-        multiplier = -1 if loan["loan_type"] == "given" else 1
-        await db.ledgers.update_one(
-            {"id": loan["ledger_id"]},
-            {"$inc": {"current_balance": data.amount * multiplier}}
-        )
-    
-    # Create transaction record
-    txn_type = "credit" if loan["loan_type"] == "given" else "debit"
-    tag = "interest_received" if data.is_interest and loan["loan_type"] == "given" else \
-          "interest_paid" if data.is_interest else \
-          "loan_repayment_received" if loan["loan_type"] == "given" else "loan_repayment_made"
-    
-    transaction = Transaction(
-        date=data.date,
-        description=f"{'Interest' if data.is_interest else 'Repayment'} - {loan['person_name']}",
-        amount=data.amount,
-        transaction_type=txn_type,
-        ledger_id=loan.get("ledger_id", ""),
-        notes=data.notes or "",
-        source="loan_transaction",
-        tag=tag
-    )
-    await db.transactions.insert_one(transaction.model_dump())
-    
-    return {"message": "Repayment recorded"}
-
 @api_router.delete("/loans/{loan_id}")
 async def delete_loan(loan_id: str, token: str):
     await get_current_user(token)
     loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
-    if loan and loan.get("ledger_id"):
-        await db.ledgers.delete_one({"id": loan["ledger_id"]})
+    if loan and loan.get("account_id"):
+        await db.accounts.delete_one({"id": loan["account_id"]})
     await db.loans.delete_one({"id": loan_id})
     return {"message": "Loan deleted"}
 
@@ -864,35 +840,34 @@ async def delete_loan(loan_id: str, token: str):
 async def get_dashboard(token: str):
     await get_current_user(token)
     
-    # Get all ledgers
-    ledgers = await db.ledgers.find({}, {"_id": 0}).to_list(1000)
+    accounts = await db.accounts.find({}, {"_id": 0}).to_list(1000)
     
-    # Calculate totals
-    bank_balance = sum(l["current_balance"] for l in ledgers if l["category"] == "bank")
-    cash_balance = sum(l["current_balance"] for l in ledgers if l["category"] == "cash")
-    loans_receivable = sum(l["current_balance"] for l in ledgers if l["category"] == "loan_receivable")
-    loans_payable = sum(l["current_balance"] for l in ledgers if l["category"] == "loan_payable")
-    investments = sum(l["current_balance"] for l in ledgers if l["category"] == "investment")
-    credit_cards = sum(l["current_balance"] for l in ledgers if l["category"] == "credit_card")
-    od_balance = sum(l["current_balance"] for l in ledgers if l["category"] == "od")
+    bank_balance = sum(a["current_balance"] for a in accounts if a["account_type"] == "bank")
+    cash_balance = sum(a["current_balance"] for a in accounts if a["account_type"] == "cash")
+    loans_receivable = sum(a["current_balance"] for a in accounts if a["account_type"] == "loan_receivable")
+    loans_payable = sum(a["current_balance"] for a in accounts if a["account_type"] == "loan_payable")
+    investments = sum(a["current_balance"] for a in accounts if a["account_type"] == "investment")
+    credit_cards = sum(a["current_balance"] for a in accounts if a["account_type"] == "credit_card")
     
-    # Calculate net worth
     total_assets = bank_balance + cash_balance + loans_receivable + investments
-    total_liabilities = loans_payable + credit_cards + od_balance
+    total_liabilities = loans_payable + credit_cards
     net_worth = total_assets - total_liabilities
     
-    # Recent transactions
     recent_transactions = await db.transactions.find({}, {"_id": 0}).sort("date", -1).to_list(10)
     
-    # Monthly income/expense for current month
-    current_month = datetime.now(timezone.utc).strftime('%Y-%m')
-    transactions = await db.transactions.find(
-        {"date": {"$regex": f"^{current_month}"}},
-        {"_id": 0}
-    ).to_list(10000)
+    # Enrich with category names
+    categories = await db.categories.find({}, {"_id": 0}).to_list(1000)
+    cat_map = {c["id"]: c["name"] for c in categories}
+    for txn in recent_transactions:
+        if txn.get("category_id"):
+            txn["category_name"] = cat_map.get(txn["category_id"], "")
     
-    monthly_income = sum(t["amount"] for t in transactions if t["transaction_type"] == "credit")
-    monthly_expense = sum(t["amount"] for t in transactions if t["transaction_type"] == "debit")
+    # Monthly income/expense
+    current_month = datetime.now(timezone.utc).strftime('%Y-%m')
+    month_transactions = await db.transactions.find({"date": {"$regex": f"^{current_month}"}}, {"_id": 0}).to_list(10000)
+    
+    monthly_income = sum(t["amount"] for t in month_transactions if t["transaction_type"] == "income")
+    monthly_expense = sum(t["amount"] for t in month_transactions if t["transaction_type"] == "expense")
     
     return {
         "bank_balance": bank_balance,
@@ -901,7 +876,6 @@ async def get_dashboard(token: str):
         "loans_payable": loans_payable,
         "investments": investments,
         "credit_cards": credit_cards,
-        "od_balance": od_balance,
         "total_assets": total_assets,
         "total_liabilities": total_liabilities,
         "net_worth": net_worth,
@@ -914,25 +888,22 @@ async def get_dashboard(token: str):
 async def get_balance_sheet(token: str):
     await get_current_user(token)
     
-    ledgers = await db.ledgers.find({}, {"_id": 0}).to_list(1000)
+    accounts = await db.accounts.find({}, {"_id": 0}).to_list(1000)
     
     assets = {
-        "bank": [l for l in ledgers if l["category"] == "bank"],
-        "cash": [l for l in ledgers if l["category"] == "cash"],
-        "loans_receivable": [l for l in ledgers if l["category"] == "loan_receivable"],
-        "investments": [l for l in ledgers if l["category"] == "investment"],
-        "other": [l for l in ledgers if l["type"] == "asset" and l["category"] not in ["bank", "cash", "loan_receivable", "investment"]]
+        "bank": [a for a in accounts if a["account_type"] == "bank"],
+        "cash": [a for a in accounts if a["account_type"] == "cash"],
+        "loans_receivable": [a for a in accounts if a["account_type"] == "loan_receivable"],
+        "investments": [a for a in accounts if a["account_type"] == "investment"],
     }
     
     liabilities = {
-        "loans_payable": [l for l in ledgers if l["category"] == "loan_payable"],
-        "credit_cards": [l for l in ledgers if l["category"] == "credit_card"],
-        "od": [l for l in ledgers if l["category"] == "od"],
-        "other": [l for l in ledgers if l["type"] == "liability" and l["category"] not in ["loan_payable", "credit_card", "od"]]
+        "loans_payable": [a for a in accounts if a["account_type"] == "loan_payable"],
+        "credit_cards": [a for a in accounts if a["account_type"] == "credit_card"],
     }
     
-    total_assets = sum(l["current_balance"] for l in ledgers if l["type"] == "asset")
-    total_liabilities = sum(l["current_balance"] for l in ledgers if l["type"] == "liability")
+    total_assets = sum(a["current_balance"] for a in accounts if a["account_type"] in ["bank", "cash", "loan_receivable", "investment"])
+    total_liabilities = sum(a["current_balance"] for a in accounts if a["account_type"] in ["loan_payable", "credit_card"])
     
     return {
         "assets": assets,
@@ -956,43 +927,67 @@ async def get_income_expense(token: str, start_date: Optional[str] = None, end_d
             query["date"] = {"$lte": end_date}
     
     transactions = await db.transactions.find(query, {"_id": 0}).to_list(10000)
-    loans = await db.loans.find({}, {"_id": 0}).to_list(1000)
-    loan_map = {l["id"]: l["person_name"] for l in loans}
+    categories = await db.categories.find({}, {"_id": 0}).to_list(1000)
+    cat_map = {c["id"]: c for c in categories}
     
-    # Group by tag
-    income_by_tag = {}
-    expense_by_tag = {}
-    
-    # Interest by loan
-    interest_income_by_loan = {}
-    interest_expense_by_loan = {}
+    # Group by category
+    income_by_category = {}
+    expense_by_category = {}
     
     for txn in transactions:
-        tag = txn.get("tag") or "Untagged"
-        if txn["transaction_type"] == "credit":
-            income_by_tag[tag] = income_by_tag.get(tag, 0) + txn["amount"]
-            # Track interest income by loan
-            if tag == "interest_received" and txn.get("linked_loan_id"):
-                loan_name = loan_map.get(txn["linked_loan_id"], "Unknown")
-                interest_income_by_loan[loan_name] = interest_income_by_loan.get(loan_name, 0) + txn["amount"]
-        else:
-            expense_by_tag[tag] = expense_by_tag.get(tag, 0) + txn["amount"]
-            # Track interest expense by loan
-            if tag == "interest_paid" and txn.get("linked_loan_id"):
-                loan_name = loan_map.get(txn["linked_loan_id"], "Unknown")
-                interest_expense_by_loan[loan_name] = interest_expense_by_loan.get(loan_name, 0) + txn["amount"]
+        cat_id = txn.get("category_id")
+        cat = cat_map.get(cat_id, {"name": "Uncategorized", "parent_id": None})
+        cat_name = cat.get("name", "Uncategorized")
+        
+        # If it's a sub-category, include parent
+        if cat.get("parent_id"):
+            parent = cat_map.get(cat["parent_id"])
+            if parent:
+                cat_name = f"{parent['name']} > {cat_name}"
+        
+        if txn["transaction_type"] == "income":
+            income_by_category[cat_name] = income_by_category.get(cat_name, 0) + txn["amount"]
+        elif txn["transaction_type"] == "expense":
+            expense_by_category[cat_name] = expense_by_category.get(cat_name, 0) + txn["amount"]
     
-    total_income = sum(income_by_tag.values())
-    total_expense = sum(expense_by_tag.values())
+    total_income = sum(income_by_category.values())
+    total_expense = sum(expense_by_category.values())
     
     return {
-        "income_by_tag": income_by_tag,
-        "expense_by_tag": expense_by_tag,
+        "income_by_category": income_by_category,
+        "expense_by_category": expense_by_category,
         "total_income": total_income,
         "total_expense": total_expense,
-        "net_income": total_income - total_expense,
-        "interest_income_by_loan": interest_income_by_loan,
-        "interest_expense_by_loan": interest_expense_by_loan
+        "net_income": total_income - total_expense
+    }
+
+@api_router.get("/reports/category/{category_id}")
+async def get_category_report(category_id: str, token: str, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """Get all transactions for a category and its children"""
+    await get_current_user(token)
+    
+    # Get category and its children
+    children = await db.categories.find({"parent_id": category_id}, {"_id": 0}).to_list(100)
+    child_ids = [c["id"] for c in children]
+    all_ids = [category_id] + child_ids
+    
+    query = {"category_id": {"$in": all_ids}}
+    if start_date:
+        query["date"] = {"$gte": start_date}
+    if end_date:
+        if "date" in query:
+            query["date"]["$lte"] = end_date
+        else:
+            query["date"] = {"$lte": end_date}
+    
+    transactions = await db.transactions.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    total = sum(t["amount"] for t in transactions)
+    
+    return {
+        "transactions": transactions,
+        "total": total,
+        "count": len(transactions)
     }
 
 # ================== EXPORT ==================
@@ -1011,37 +1006,35 @@ async def export_transactions(token: str, start_date: Optional[str] = None, end_
             query["date"] = {"$lte": end_date}
     
     transactions = await db.transactions.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
-    ledgers = await db.ledgers.find({}, {"_id": 0}).to_list(1000)
-    ledger_map = {l["id"]: l["name"] for l in ledgers}
+    accounts = await db.accounts.find({}, {"_id": 0}).to_list(1000)
+    categories = await db.categories.find({}, {"_id": 0}).to_list(1000)
     
-    # Create Excel workbook
+    account_map = {a["id"]: a["name"] for a in accounts}
+    cat_map = {c["id"]: c["name"] for c in categories}
+    
     wb = Workbook()
     ws = wb.active
     ws.title = "Transactions"
     
-    # Header style
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
     
-    # Headers
-    headers = ["Date", "Description", "Amount", "Type", "Ledger", "Tag", "Reference"]
+    headers = ["Date", "Description", "Amount", "Type", "Account", "Category", "Reference"]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
     
-    # Data
     for row, txn in enumerate(transactions, 2):
         ws.cell(row=row, column=1, value=txn["date"])
         ws.cell(row=row, column=2, value=txn["description"])
         ws.cell(row=row, column=3, value=txn["amount"])
         ws.cell(row=row, column=4, value=txn["transaction_type"])
-        ws.cell(row=row, column=5, value=ledger_map.get(txn.get("ledger_id"), ""))
-        ws.cell(row=row, column=6, value=txn.get("tag", ""))
+        ws.cell(row=row, column=5, value=account_map.get(txn.get("account_id"), ""))
+        ws.cell(row=row, column=6, value=cat_map.get(txn.get("category_id"), ""))
         ws.cell(row=row, column=7, value=txn.get("reference", ""))
     
-    # Adjust column widths
     ws.column_dimensions['A'].width = 12
     ws.column_dimensions['B'].width = 50
     ws.column_dimensions['C'].width = 15
@@ -1050,7 +1043,6 @@ async def export_transactions(token: str, start_date: Optional[str] = None, end_
     ws.column_dimensions['F'].width = 20
     ws.column_dimensions['G'].width = 20
     
-    # Save to buffer
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -1059,72 +1051,6 @@ async def export_transactions(token: str, start_date: Optional[str] = None, end_
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=transactions.xlsx"}
-    )
-
-@api_router.get("/export/balance-sheet")
-async def export_balance_sheet(token: str):
-    await get_current_user(token)
-    
-    ledgers = await db.ledgers.find({}, {"_id": 0}).to_list(1000)
-    
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Balance Sheet"
-    
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
-    total_font = Font(bold=True)
-    
-    # Assets
-    ws.cell(row=1, column=1, value="ASSETS").font = header_font
-    ws.cell(row=1, column=1).fill = header_fill
-    ws.cell(row=1, column=2, value="Balance").font = header_font
-    ws.cell(row=1, column=2).fill = header_fill
-    
-    row = 2
-    total_assets = 0
-    for ledger in [l for l in ledgers if l["type"] == "asset"]:
-        ws.cell(row=row, column=1, value=ledger["name"])
-        ws.cell(row=row, column=2, value=ledger["current_balance"])
-        total_assets += ledger["current_balance"]
-        row += 1
-    
-    ws.cell(row=row, column=1, value="TOTAL ASSETS").font = total_font
-    ws.cell(row=row, column=2, value=total_assets).font = total_font
-    row += 2
-    
-    # Liabilities
-    ws.cell(row=row, column=1, value="LIABILITIES").font = header_font
-    ws.cell(row=row, column=1).fill = header_fill
-    ws.cell(row=row, column=2, value="Balance").font = header_font
-    ws.cell(row=row, column=2).fill = header_fill
-    row += 1
-    
-    total_liabilities = 0
-    for ledger in [l for l in ledgers if l["type"] == "liability"]:
-        ws.cell(row=row, column=1, value=ledger["name"])
-        ws.cell(row=row, column=2, value=ledger["current_balance"])
-        total_liabilities += ledger["current_balance"]
-        row += 1
-    
-    ws.cell(row=row, column=1, value="TOTAL LIABILITIES").font = total_font
-    ws.cell(row=row, column=2, value=total_liabilities).font = total_font
-    row += 2
-    
-    ws.cell(row=row, column=1, value="NET WORTH").font = Font(bold=True, size=14)
-    ws.cell(row=row, column=2, value=total_assets - total_liabilities).font = Font(bold=True, size=14)
-    
-    ws.column_dimensions['A'].width = 30
-    ws.column_dimensions['B'].width = 20
-    
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    
-    return StreamingResponse(
-        buffer,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=balance_sheet.xlsx"}
     )
 
 # ================== TAG PATTERNS ==================
@@ -1140,6 +1066,26 @@ async def delete_tag_pattern(pattern_id: str, token: str):
     await get_current_user(token)
     await db.tag_patterns.delete_one({"id": pattern_id})
     return {"message": "Pattern deleted"}
+
+# ================== LEGACY ENDPOINTS (for backward compatibility) ==================
+
+@api_router.get("/ledgers")
+async def get_ledgers_legacy(token: str, type: Optional[str] = None, category: Optional[str] = None):
+    """Legacy endpoint - redirects to accounts"""
+    return await get_accounts(token, account_type=category)
+
+@api_router.post("/ledgers")
+async def create_ledger_legacy(data: Dict[str, Any], token: str):
+    """Legacy endpoint - creates account"""
+    await get_current_user(token)
+    account_data = AccountCreate(
+        name=data.get("name", ""),
+        account_type=data.get("category", "bank"),
+        opening_balance=data.get("opening_balance", 0),
+        description=data.get("description", ""),
+        person_name=data.get("person_name")
+    )
+    return await create_account(account_data, token)
 
 # Include router
 app.include_router(api_router)
