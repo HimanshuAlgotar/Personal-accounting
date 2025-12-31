@@ -518,22 +518,22 @@ async def update_transaction(transaction_id: str, data: TransactionUpdate, token
     if "amount" in update_data or "transaction_type" in update_data or "account_id" in update_data:
         old_amount = original["amount"]
         old_type = original["transaction_type"]
-        old_account = original["account_id"]
+        old_account = original.get("account_id") or original.get("ledger_id")
         
         new_amount = update_data.get("amount", old_amount)
         new_type = update_data.get("transaction_type", old_type)
         new_account = update_data.get("account_id", old_account)
         
         # Reverse old effect
-        if old_type == "expense":
+        if old_type == "expense" and old_account:
             await db.accounts.update_one({"id": old_account}, {"$inc": {"current_balance": old_amount}})
-        elif old_type == "income":
+        elif old_type == "income" and old_account:
             await db.accounts.update_one({"id": old_account}, {"$inc": {"current_balance": -old_amount}})
         
         # Apply new effect
-        if new_type == "expense":
+        if new_type == "expense" and new_account:
             await db.accounts.update_one({"id": new_account}, {"$inc": {"current_balance": -new_amount}})
-        elif new_type == "income":
+        elif new_type == "income" and new_account:
             await db.accounts.update_one({"id": new_account}, {"$inc": {"current_balance": new_amount}})
     
     await db.transactions.update_one({"id": transaction_id}, {"$set": update_data})
