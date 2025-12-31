@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 
 class LedgerOSAPITester:
-    def __init__(self, base_url="https://cashflow-manager-66.preview.emergentagent.com"):
+    def __init__(self, base_url="https://fintrack-572.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0

@@ -4,7 +4,7 @@ import requests
 import json
 
 # First login with current password (newtest123) and change back to admin123
-base_url = "https://cashflow-manager-66.preview.emergentagent.com"
+base_url = "https://fintrack-572.preview.emergentagent.com"
 
 # Login with current password
 login_url = f"{base_url}/api/auth/login"
