@@ -990,7 +990,9 @@ async def get_income_expense(token: str, start_date: Optional[str] = None, end_d
         "expense_by_tag": expense_by_tag,
         "total_income": total_income,
         "total_expense": total_expense,
-        "net_income": total_income - total_expense
+        "net_income": total_income - total_expense,
+        "interest_income_by_loan": interest_income_by_loan,
+        "interest_expense_by_loan": interest_expense_by_loan
     }
 
 # ================== EXPORT ==================
