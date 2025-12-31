@@ -167,7 +167,7 @@ async def get_current_user(token: str = None):
         raise HTTPException(status_code=401, detail="Not authenticated")
     session = await db.sessions.find_one({"token": token}, {"_id": 0})
     if not session:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Session expired. Please login again.")
     return session
 
 @api_router.post("/auth/setup", response_model=TokenResponse)
