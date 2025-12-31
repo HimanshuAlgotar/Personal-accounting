@@ -608,6 +608,69 @@ async def get_loan(loan_id: str, token: str):
         raise HTTPException(status_code=404, detail="Loan not found")
     return loan
 
+@api_router.get("/loans/{loan_id}/interest")
+async def calculate_loan_interest(loan_id: str, token: str, as_of_date: Optional[str] = None):
+    """Calculate accrued interest for a loan"""
+    await get_current_user(token)
+    loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    if loan["interest_rate"] == 0:
+        return {"accrued_interest": 0, "total_due": loan["principal"] - loan["total_repaid"]}
+    
+    # Calculate days elapsed
+    start = datetime.strptime(loan["start_date"], "%Y-%m-%d")
+    end = datetime.strptime(as_of_date, "%Y-%m-%d") if as_of_date else datetime.now(timezone.utc).replace(tzinfo=None)
+    days_elapsed = (end - start).days
+    
+    principal = loan["principal"]
+    rate = loan["interest_rate"] / 100  # Convert to decimal
+    interest_type = loan.get("interest_type", "simple")
+    
+    if interest_type == "compound":
+        # Compound interest (monthly compounding)
+        months = days_elapsed / 30
+        accrued_interest = principal * ((1 + rate/12) ** months - 1)
+    else:
+        # Simple interest
+        accrued_interest = principal * rate * (days_elapsed / 365)
+    
+    outstanding_principal = loan["principal"] - loan["total_repaid"]
+    total_due = outstanding_principal + accrued_interest - loan["interest_paid"]
+    
+    return {
+        "principal": loan["principal"],
+        "outstanding_principal": outstanding_principal,
+        "interest_rate": loan["interest_rate"],
+        "interest_type": interest_type,
+        "days_elapsed": days_elapsed,
+        "accrued_interest": round(accrued_interest, 2),
+        "interest_paid": loan["interest_paid"],
+        "interest_due": round(max(0, accrued_interest - loan["interest_paid"]), 2),
+        "total_due": round(max(0, total_due), 2)
+    }
+
+@api_router.put("/loans/{loan_id}")
+async def update_loan(loan_id: str, data: LoanUpdate, token: str):
+    await get_current_user(token)
+    loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if update_data:
+        await db.loans.update_one({"id": loan_id}, {"$set": update_data})
+        # Update ledger name if person name changed
+        if "person_name" in update_data and loan.get("ledger_id"):
+            await db.ledgers.update_one(
+                {"id": loan["ledger_id"]},
+                {"$set": {"name": f"Loan - {update_data['person_name']}", "person_name": update_data['person_name']}}
+            )
+    
+    updated_loan = await db.loans.find_one({"id": loan_id}, {"_id": 0})
+    return updated_loan
+
 @api_router.post("/loans/repayment")
 async def record_repayment(data: LoanRepayment, token: str):
     await get_current_user(token)
