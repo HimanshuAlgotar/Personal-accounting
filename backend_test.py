@@ -592,6 +592,213 @@ class PersonalAccountingAPITester:
         
         return success
 
+    def test_specific_fixes(self):
+        """Test specific fixes mentioned in review request"""
+        print("\n=== SPECIFIC FIXES VERIFICATION ===")
+        
+        # 1. Test Reports Page Fix - income_by_category instead of income_by_tag
+        print("\n🔍 Testing Reports Page Fix...")
+        success, income_expense = self.run_test(
+            "Reports API - income_by_category Fix",
+            "GET",
+            "reports/income-expense",
+            200
+        )
+        if success:
+            # Check if response has income_by_category and expense_by_category
+            has_income_by_category = 'income_by_category' in income_expense
+            has_expense_by_category = 'expense_by_category' in income_expense
+            has_income_by_tag = 'income_by_tag' in income_expense  # Should NOT exist
+            
+            if has_income_by_category and has_expense_by_category and not has_income_by_tag:
+                print("   ✅ Reports API correctly returns income_by_category and expense_by_category")
+                self.log_result("Reports API Structure Fix", True)
+            else:
+                error_msg = f"Missing fields - income_by_category: {has_income_by_category}, expense_by_category: {has_expense_by_category}, has_income_by_tag: {has_income_by_tag}"
+                self.log_result("Reports API Structure Fix", False, error_msg)
+        
+        # 2. Test System Categories Protection
+        print("\n🔍 Testing System Categories Protection...")
+        # First get all categories to find a system category
+        success, categories = self.run_test(
+            "Get Categories for System Protection Test",
+            "GET",
+            "categories/flat",
+            200
+        )
+        
+        system_category_id = None
+        if success:
+            # Find a system category (like "Personal", "Food & Dining", etc.)
+            for cat in categories:
+                if cat.get('name') in ["Personal", "Food & Dining", "Transport", "Utilities", "Shopping", 
+                                     "Entertainment", "Health", "Education", "Rent", "Interest Paid", "Other Expense",
+                                     "Salary", "Interest Received", "Investment Returns", "Other Income"]:
+                    if cat.get('parent_id') is None:  # Only parent categories are protected
+                        system_category_id = cat.get('id')
+                        print(f"   Found system category: {cat.get('name')} (ID: {system_category_id})")
+                        break
+        
+        if system_category_id:
+            # Try to delete system category - should fail with 400
+            success, response = self.run_test(
+                "Delete System Category (Should Fail)",
+                "DELETE",
+                f"categories/{system_category_id}",
+                400  # Should return 400 error
+            )
+            if success:
+                print("   ✅ System category deletion correctly blocked")
+            else:
+                print("   ❌ System category deletion was not blocked properly")
+        else:
+            print("   ⚠️  No system category found to test protection")
+        
+        # 3. Test Transaction Delete Balance Fix
+        print("\n🔍 Testing Transaction Delete Balance Fix...")
+        if self.bank_account_id:
+            # Get current account balance
+            success, account_before = self.run_test(
+                "Get Account Balance Before Transaction",
+                "GET",
+                f"accounts/{self.bank_account_id}",
+                200
+            )
+            
+            if success:
+                balance_before = account_before.get('current_balance', 0)
+                print(f"   Account balance before: ₹{balance_before:,.2f}")
+                
+                # Create a test transaction
+                test_amount = 1000.0
+                success, test_txn = self.run_test(
+                    "Create Test Transaction for Delete",
+                    "POST",
+                    "transactions",
+                    200,
+                    data={
+                        "date": "2024-01-20",
+                        "description": "Test transaction for delete balance fix",
+                        "amount": test_amount,
+                        "account_id": self.bank_account_id,
+                        "transaction_type": "expense",
+                        "reference": "DELETE_TEST",
+                        "notes": "Test transaction to verify balance fix on delete"
+                    }
+                )
+                
+                if success:
+                    test_txn_id = test_txn.get('id')
+                    print(f"   Created test transaction ID: {test_txn_id}")
+                    
+                    # Get balance after transaction creation
+                    success, account_after_create = self.run_test(
+                        "Get Account Balance After Transaction Creation",
+                        "GET",
+                        f"accounts/{self.bank_account_id}",
+                        200
+                    )
+                    
+                    if success:
+                        balance_after_create = account_after_create.get('current_balance', 0)
+                        expected_balance_after_create = balance_before - test_amount
+                        print(f"   Account balance after creation: ₹{balance_after_create:,.2f}")
+                        print(f"   Expected balance after creation: ₹{expected_balance_after_create:,.2f}")
+                        
+                        # Delete the transaction
+                        success, _ = self.run_test(
+                            "Delete Test Transaction",
+                            "DELETE",
+                            f"transactions/{test_txn_id}",
+                            200
+                        )
+                        
+                        if success:
+                            # Get balance after deletion
+                            success, account_after_delete = self.run_test(
+                                "Get Account Balance After Transaction Delete",
+                                "GET",
+                                f"accounts/{self.bank_account_id}",
+                                200
+                            )
+                            
+                            if success:
+                                balance_after_delete = account_after_delete.get('current_balance', 0)
+                                print(f"   Account balance after delete: ₹{balance_after_delete:,.2f}")
+                                print(f"   Original balance: ₹{balance_before:,.2f}")
+                                
+                                # Check if balance was correctly reverted
+                                if abs(balance_after_delete - balance_before) < 0.01:  # Allow for floating point precision
+                                    print("   ✅ Transaction delete correctly reverted account balance")
+                                    self.log_result("Transaction Delete Balance Fix", True)
+                                else:
+                                    error_msg = f"Balance not reverted correctly. Expected: {balance_before}, Got: {balance_after_delete}"
+                                    self.log_result("Transaction Delete Balance Fix", False, error_msg)
+        
+        # 4. Test linked_loan_id in Transactions
+        print("\n🔍 Testing linked_loan_id in Transactions...")
+        if self.bank_account_id:
+            # Create a loan first
+            success, test_loan = self.run_test(
+                "Create Test Loan for linked_loan_id",
+                "POST",
+                "loans",
+                200,
+                data={
+                    "person_name": "Test Borrower",
+                    "loan_type": "given",
+                    "principal": 50000.0,
+                    "interest_rate": 12.0,
+                    "start_date": "2024-01-01",
+                    "notes": "Test loan for linked_loan_id verification"
+                }
+            )
+            
+            if success:
+                test_loan_id = test_loan.get('id')
+                print(f"   Created test loan ID: {test_loan_id}")
+                
+                # Create transaction with linked_loan_id
+                success, linked_txn = self.run_test(
+                    "Create Transaction with linked_loan_id",
+                    "POST",
+                    "transactions",
+                    200,
+                    data={
+                        "date": "2024-01-25",
+                        "description": "Interest payment for loan",
+                        "amount": 500.0,
+                        "account_id": self.bank_account_id,
+                        "linked_loan_id": test_loan_id,
+                        "transaction_type": "expense",
+                        "reference": "LOAN_INT_001",
+                        "notes": "Interest payment linked to specific loan"
+                    }
+                )
+                
+                if success:
+                    linked_txn_id = linked_txn.get('id')
+                    print(f"   Created transaction with linked_loan_id: {linked_txn_id}")
+                    
+                    # Verify the transaction has the linked_loan_id field
+                    success, txn_detail = self.run_test(
+                        "Get Transaction with linked_loan_id",
+                        "GET",
+                        f"transactions/{linked_txn_id}",
+                        200
+                    )
+                    
+                    if success:
+                        stored_loan_id = txn_detail.get('linked_loan_id')
+                        if stored_loan_id == test_loan_id:
+                            print("   ✅ Transaction correctly stores and retrieves linked_loan_id")
+                            self.log_result("linked_loan_id Support", True)
+                        else:
+                            error_msg = f"linked_loan_id not stored correctly. Expected: {test_loan_id}, Got: {stored_loan_id}"
+                            self.log_result("linked_loan_id Support", False, error_msg)
+        
+        return True
+
     def run_all_tests(self):
         """Run all tests"""
         print("🚀 Starting Personal Accounting API Tests")
@@ -608,6 +815,7 @@ class PersonalAccountingAPITester:
             self.test_transactions,
             self.test_reports,
             self.test_loans,
+            self.test_specific_fixes,  # Add specific fixes test
             self.test_exports,
             self.test_settings,
         ]
