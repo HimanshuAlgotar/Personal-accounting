@@ -527,7 +527,9 @@ async def create_loan(data: LoanCreate, token: str):
     )
     await db.ledgers.insert_one(ledger.model_dump())
     
-    loan = Loan(**data.model_dump(), ledger_id=ledger.id)
+    loan_data = data.model_dump()
+    loan_data['ledger_id'] = ledger.id
+    loan = Loan(**loan_data)
     await db.loans.insert_one(loan.model_dump())
     return loan
 
