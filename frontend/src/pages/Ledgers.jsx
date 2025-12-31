@@ -347,7 +347,25 @@ export default function Ledgers() {
 
             <div>
               <Label>Opening Balance (₹)</Label>
-              <Input type="number" step="0.01" value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} className="mt-1 font-mono" data-testid="ledger-balance-input" placeholder="Can be negative e.g. -5000" />
+              <Input 
+                type="text" 
+                inputMode="decimal"
+                value={formData.opening_balance} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || val === '-') {
+                    setFormData({ ...formData, opening_balance: val });
+                  } else {
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) {
+                      setFormData({ ...formData, opening_balance: num });
+                    }
+                  }
+                }} 
+                className="mt-1 font-mono" 
+                data-testid="ledger-balance-input" 
+                placeholder="-5000 for liabilities" 
+              />
               <p className="text-xs text-gray-500 mt-1">Enter negative value for liabilities</p>
             </div>
 
