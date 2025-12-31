@@ -97,15 +97,22 @@ class Transaction(BaseModel):
     date: str
     description: str
     amount: float
-    account_id: str  # Source account
+    account_id: Optional[str] = None  # Source account (new field)
+    ledger_id: Optional[str] = None  # Legacy field for backward compatibility
     category_id: Optional[str] = None
     payee_id: Optional[str] = None  # For transfers
     transaction_type: str  # expense, income, transfer
     reference: str = ""
     notes: str = ""
     source: str = "manual"  # manual, bank_import
+    tag: Optional[str] = None  # Legacy field
     transfer_pair_id: Optional[str] = None  # Links paired transfer transactions
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    
+    @property
+    def effective_account_id(self):
+        """Return account_id or fall back to ledger_id for legacy data"""
+        return self.account_id or self.ledger_id
 
 class TransactionUpdate(BaseModel):
     date: Optional[str] = None
