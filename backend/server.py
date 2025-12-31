@@ -557,13 +557,16 @@ async def delete_transaction(transaction_id: str, token: str):
     await get_current_user(token)
     transaction = await db.transactions.find_one({"id": transaction_id}, {"_id": 0})
     if transaction:
+        # Get effective account ID (account_id or fallback to ledger_id for legacy data)
+        effective_account_id = transaction.get("account_id") or transaction.get("ledger_id")
+        
         # Reverse balance effect
-        if transaction["transaction_type"] == "expense":
-            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": transaction["amount"]}})
-        elif transaction["transaction_type"] == "income":
-            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": -transaction["amount"]}})
-        elif transaction["transaction_type"] == "transfer" and transaction.get("payee_id"):
-            await db.accounts.update_one({"id": transaction["account_id"]}, {"$inc": {"current_balance": transaction["amount"]}})
+        if transaction["transaction_type"] == "expense" and effective_account_id:
+            await db.accounts.update_one({"id": effective_account_id}, {"$inc": {"current_balance": transaction["amount"]}})
+        elif transaction["transaction_type"] == "income" and effective_account_id:
+            await db.accounts.update_one({"id": effective_account_id}, {"$inc": {"current_balance": -transaction["amount"]}})
+        elif transaction["transaction_type"] == "transfer" and transaction.get("payee_id") and effective_account_id:
+            await db.accounts.update_one({"id": effective_account_id}, {"$inc": {"current_balance": transaction["amount"]}})
             await db.accounts.update_one({"id": transaction["payee_id"]}, {"$inc": {"current_balance": -transaction["amount"]}})
     
     await db.transactions.delete_one({"id": transaction_id})
