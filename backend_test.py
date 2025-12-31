@@ -120,7 +120,7 @@ class LedgerOSAPITester:
             "POST",
             "auth/login",
             200,
-            data={"password": "test123"}
+            data={"password": "admin123"}
         )
         if success and 'token' in response:
             self.token = response['token']
