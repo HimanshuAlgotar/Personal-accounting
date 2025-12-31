@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { ArrowRightLeft, TrendingDown, TrendingUp, Check, Folder, Plus, X } from "lucide-react";
+import { ArrowRightLeft, TrendingDown, TrendingUp, Check, Folder, Plus, X, Handshake } from "lucide-react";
 
 const formatCurrency = (amount) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(amount || 0);
 
@@ -29,6 +29,7 @@ export default function AddEntry() {
     description: "",
     category_id: "",
     sub_category_id: "",
+    linked_loan_id: "",
     notes: "",
   });
 
@@ -82,6 +83,7 @@ export default function AddEntry() {
         amount: parseFloat(entryData.amount) || 0,
         account_id: entryData.account_id,
         category_id: categoryId || null,
+        linked_loan_id: entryData.linked_loan_id || null,
         transaction_type: activeTab,
         notes: entryData.notes,
       });
@@ -94,6 +96,7 @@ export default function AddEntry() {
         description: "",
         category_id: "",
         sub_category_id: "",
+        linked_loan_id: "",
         notes: "",
       });
     } catch (err) {
@@ -174,7 +177,11 @@ export default function AddEntry() {
   const selectedCategoryData = currentCategories.find(c => c.id === entryData.category_id);
 
   const assetAccounts = accounts.filter(a => ["bank", "cash", "investment"].includes(a.account_type));
+  const loanAccounts = accounts.filter(a => ["loan_receivable", "loan_payable"].includes(a.account_type));
   const allAccounts = accounts;
+
+  // Check if Interest category is selected
+  const isInterestCategory = selectedCategoryData?.name === "Interest Paid" || selectedCategoryData?.name === "Interest Received";
 
   return (
     <div className="max-w-2xl mx-auto animate-fadeIn" data-testid="add-entry-page">
@@ -199,43 +206,241 @@ export default function AddEntry() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Expense/Income Tab */}
+        {/* Expense Tab */}
         <TabsContent value="expense">
-          <EntryForm 
-            data={entryData}
-            setData={setEntryData}
-            categories={expenseCategories}
-            selectedCategoryData={selectedCategoryData}
-            accounts={assetAccounts}
-            loading={loading}
-            onSubmit={handleEntrySubmit}
-            type="expense"
-            getAccountBalance={getAccountBalance}
-            showNewCategory={showNewCategory}
-            setShowNewCategory={setShowNewCategory}
-            newCategoryName={newCategoryName}
-            setNewCategoryName={setNewCategoryName}
-            createNewCategory={createNewCategory}
-          />
+          <form onSubmit={handleEntrySubmit} className="card-surface p-6 space-y-5">
+            <p className="text-sm text-gray-600 mb-4">Record an expense entry</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date</Label>
+                <Input type="date" value={entryData.date} onChange={(e) => setEntryData({ ...entryData, date: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <Label>Account</Label>
+                <Select value={entryData.account_id} onValueChange={(val) => setEntryData({ ...entryData, account_id: val })}>
+                  <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <SelectContent>
+                    {assetAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {entryData.account_id && (
+                  <p className="text-xs text-gray-500 mt-1">Balance: {getAccountBalance(entryData.account_id)}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label>Amount (₹)</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                value={entryData.amount} 
+                onChange={(e) => setEntryData({ ...entryData, amount: e.target.value })} 
+                className="mt-1 font-mono text-lg" 
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Input 
+                value={entryData.description} 
+                onChange={(e) => setEntryData({ ...entryData, description: e.target.value })} 
+                className="mt-1" 
+                placeholder="e.g., Groceries, Uber ride"
+                required
+              />
+            </div>
+
+            {/* Category Selection */}
+            <div>
+              <Label className="flex items-center gap-2"><Folder size={14} /> Category</Label>
+              <Select value={entryData.category_id} onValueChange={(val) => setEntryData({ ...entryData, category_id: val, sub_category_id: "", linked_loan_id: "" })}>
+                <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No category</SelectItem>
+                  {expenseCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sub-category Selection */}
+            {selectedCategoryData?.children?.length > 0 && (
+              <div>
+                <Label>Sub-category (optional)</Label>
+                <Select value={entryData.sub_category_id} onValueChange={(val) => setEntryData({ ...entryData, sub_category_id: val })}>
+                  <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select sub-category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Use parent category</SelectItem>
+                    {selectedCategoryData.children.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Link to Loan - Show for Interest Paid */}
+            {isInterestCategory && loanAccounts.length > 0 && (
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <Label className="flex items-center gap-2 text-amber-800"><Handshake size={14} /> Link Interest to Loan</Label>
+                <Select value={entryData.linked_loan_id} onValueChange={(val) => setEntryData({ ...entryData, linked_loan_id: val })}>
+                  <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select loan account" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No specific loan</SelectItem>
+                    {loanAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} {acc.person_name ? `(${acc.person_name})` : ""} - {formatCurrency(acc.current_balance)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-amber-700 mt-1">Track which loan this interest payment belongs to</p>
+              </div>
+            )}
+
+            {/* Create new category */}
+            {!showNewCategory ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewCategory(true)} className="text-blue-600">
+                <Plus size={14} className="mr-1" />
+                {entryData.category_id ? "Add sub-category" : "Add new category"}
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Input 
+                  placeholder={entryData.category_id ? "Sub-category name" : "Category name"} 
+                  value={newCategoryName} 
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="button" size="sm" onClick={createNewCategory}>Add</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewCategory(false); setNewCategoryName(""); }}>
+                  <X size={14} />
+                </Button>
+              </div>
+            )}
+
+            <div>
+              <Label>Notes (Optional)</Label>
+              <Textarea 
+                value={entryData.notes} 
+                onChange={(e) => setEntryData({ ...entryData, notes: e.target.value })} 
+                className="mt-1 h-20" 
+                placeholder="Any additional notes"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              <Check size={16} className="mr-2" />
+              {loading ? "Processing..." : "Record Expense"}
+            </Button>
+          </form>
         </TabsContent>
 
+        {/* Income Tab */}
         <TabsContent value="income">
-          <EntryForm 
-            data={entryData}
-            setData={setEntryData}
-            categories={incomeCategories}
-            selectedCategoryData={incomeCategories.find(c => c.id === entryData.category_id)}
-            accounts={assetAccounts}
-            loading={loading}
-            onSubmit={handleEntrySubmit}
-            type="income"
-            getAccountBalance={getAccountBalance}
-            showNewCategory={showNewCategory}
-            setShowNewCategory={setShowNewCategory}
-            newCategoryName={newCategoryName}
-            setNewCategoryName={setNewCategoryName}
-            createNewCategory={createNewCategory}
-          />
+          <form onSubmit={handleEntrySubmit} className="card-surface p-6 space-y-5">
+            <p className="text-sm text-gray-600 mb-4">Record an income entry</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date</Label>
+                <Input type="date" value={entryData.date} onChange={(e) => setEntryData({ ...entryData, date: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <Label>Account</Label>
+                <Select value={entryData.account_id} onValueChange={(val) => setEntryData({ ...entryData, account_id: val })}>
+                  <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <SelectContent>
+                    {assetAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {entryData.account_id && (
+                  <p className="text-xs text-gray-500 mt-1">Balance: {getAccountBalance(entryData.account_id)}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label>Amount (₹)</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                value={entryData.amount} 
+                onChange={(e) => setEntryData({ ...entryData, amount: e.target.value })} 
+                className="mt-1 font-mono text-lg" 
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Input 
+                value={entryData.description} 
+                onChange={(e) => setEntryData({ ...entryData, description: e.target.value })} 
+                className="mt-1" 
+                placeholder="e.g., Salary, Freelance payment"
+                required
+              />
+            </div>
+
+            {/* Category Selection */}
+            <div>
+              <Label className="flex items-center gap-2"><Folder size={14} /> Category</Label>
+              <Select value={entryData.category_id} onValueChange={(val) => setEntryData({ ...entryData, category_id: val, sub_category_id: "", linked_loan_id: "" })}>
+                <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No category</SelectItem>
+                  {incomeCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Link to Loan - Show for Interest Received */}
+            {selectedCategoryData?.name === "Interest Received" && loanAccounts.length > 0 && (
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                <Label className="flex items-center gap-2 text-emerald-800"><Handshake size={14} /> Link Interest to Loan</Label>
+                <Select value={entryData.linked_loan_id} onValueChange={(val) => setEntryData({ ...entryData, linked_loan_id: val })}>
+                  <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select loan account" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No specific loan</SelectItem>
+                    {loanAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} {acc.person_name ? `(${acc.person_name})` : ""} - {formatCurrency(acc.current_balance)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-emerald-700 mt-1">Track which loan this interest payment is from</p>
+              </div>
+            )}
+
+            <div>
+              <Label>Notes (Optional)</Label>
+              <Textarea 
+                value={entryData.notes} 
+                onChange={(e) => setEntryData({ ...entryData, notes: e.target.value })} 
+                className="mt-1 h-20" 
+                placeholder="Any additional notes"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              <Check size={16} className="mr-2" />
+              {loading ? "Processing..." : "Record Income"}
+            </Button>
+          </form>
         </TabsContent>
 
         {/* Transfer Tab */}
@@ -324,126 +529,5 @@ export default function AddEntry() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function EntryForm({ data, setData, categories, selectedCategoryData, accounts, loading, onSubmit, type, getAccountBalance, showNewCategory, setShowNewCategory, newCategoryName, setNewCategoryName, createNewCategory }) {
-  return (
-    <form onSubmit={onSubmit} className="card-surface p-6 space-y-5">
-      <p className="text-sm text-gray-600 mb-4">
-        Record a single {type === "income" ? "income" : "expense"} entry
-      </p>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Date</Label>
-          <Input type="date" value={data.date} onChange={(e) => setData({ ...data, date: e.target.value })} className="mt-1" />
-        </div>
-        <div>
-          <Label>Account</Label>
-          <Select value={data.account_id} onValueChange={(val) => setData({ ...data, account_id: val })}>
-            <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select account" /></SelectTrigger>
-            <SelectContent>
-              {accounts.map((a) => (
-                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {data.account_id && (
-            <p className="text-xs text-gray-500 mt-1">Balance: {getAccountBalance(data.account_id)}</p>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <Label>Amount (₹)</Label>
-        <Input 
-          type="number" 
-          step="0.01" 
-          min="0" 
-          value={data.amount} 
-          onChange={(e) => setData({ ...data, amount: e.target.value })} 
-          className="mt-1 font-mono text-lg" 
-          placeholder="0.00"
-        />
-      </div>
-
-      <div>
-        <Label>Description</Label>
-        <Input 
-          value={data.description} 
-          onChange={(e) => setData({ ...data, description: e.target.value })} 
-          className="mt-1" 
-          placeholder={type === "income" ? "e.g., Salary, Freelance payment" : "e.g., Groceries, Uber ride"}
-          required
-        />
-      </div>
-
-      {/* Category Selection */}
-      <div>
-        <Label className="flex items-center gap-2"><Folder size={14} /> Category</Label>
-        <Select value={data.category_id} onValueChange={(val) => setData({ ...data, category_id: val, sub_category_id: "" })}>
-          <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No category</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Sub-category Selection */}
-      {selectedCategoryData?.children?.length > 0 && (
-        <div>
-          <Label>Sub-category (optional)</Label>
-          <Select value={data.sub_category_id} onValueChange={(val) => setData({ ...data, sub_category_id: val })}>
-            <SelectTrigger className="mt-1 bg-white"><SelectValue placeholder="Select sub-category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Use parent category</SelectItem>
-              {selectedCategoryData.children.map((sub) => (
-                <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Create new category */}
-      {!showNewCategory ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewCategory(true)} className="text-blue-600">
-          <Plus size={14} className="mr-1" />
-          {data.category_id ? "Add sub-category" : "Add new category"}
-        </Button>
-      ) : (
-        <div className="flex gap-2">
-          <Input 
-            placeholder={data.category_id ? "Sub-category name (e.g., Uber)" : "Category name"} 
-            value={newCategoryName} 
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="button" size="sm" onClick={createNewCategory}>Add</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewCategory(false); setNewCategoryName(""); }}>
-            <X size={14} />
-          </Button>
-        </div>
-      )}
-
-      <div>
-        <Label>Notes (Optional)</Label>
-        <Textarea 
-          value={data.notes} 
-          onChange={(e) => setData({ ...data, notes: e.target.value })} 
-          className="mt-1 h-20" 
-          placeholder="Any additional notes"
-        />
-      </div>
-
-      <Button type="submit" className="w-full" disabled={loading}>
-        <Check size={16} className="mr-2" />
-        {loading ? "Processing..." : `Record ${type === "income" ? "Income" : "Expense"}`}
-      </Button>
-    </form>
   );
 }
