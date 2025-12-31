@@ -94,6 +94,7 @@ class TransactionCreate(BaseModel):
     account_id: str  # Source account (bank/cash)
     category_id: Optional[str] = None  # For income/expense categorization
     payee_id: Optional[str] = None  # For transfers to another account/person
+    linked_loan_id: Optional[str] = None  # Link interest payment to specific loan
     transaction_type: str  # expense, income, transfer
     reference: Optional[str] = ""
     notes: Optional[str] = ""
