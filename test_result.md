@@ -118,6 +118,7 @@ test_plan:
     - "Accounts API"
     - "Transactions API (Double-entry)"
     - "Reports API"
+    - "Specific Fixes Verification"
     - "Frontend Integration"
   stuck_tasks: []
   test_all: false
