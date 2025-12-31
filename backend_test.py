@@ -412,7 +412,7 @@ class LedgerOSAPITester:
             "auth/change-password",
             200,
             data={
-                "current_password": "test123",
+                "current_password": "admin123",
                 "new_password": "newtest123"
             }
         )
