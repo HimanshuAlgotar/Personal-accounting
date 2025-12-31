@@ -85,7 +85,9 @@ class Transaction(BaseModel):
     reference: str = ""
     notes: str = ""
     source: str = "manual"
-    tag: Optional[str] = None  # personal_expense, loan_given, loan_taken, interest_paid, interest_received, etc.
+    tag: Optional[str] = None
+    linked_loan_id: Optional[str] = None  # Links interest payments to loans
+    transfer_id: Optional[str] = None  # Links paired transfer transactions
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class BulkTagUpdate(BaseModel):
