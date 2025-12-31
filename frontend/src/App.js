@@ -3,6 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 // Pages
 import Login from "@/pages/Login";
@@ -24,12 +25,29 @@ export const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
 
+// Setup axios interceptor for 401 errors
+const setupAxiosInterceptor = (logoutFn) => {
+  axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem("ledgeros_token");
+        toast.error("Session expired. Please login again.");
+        window.location.href = "/login";
+      }
+      return Promise.reject(error);
+    }
+  );
+};
+
 const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("ledgeros_token"));
   const [loading, setLoading] = useState(true);
   const [setupRequired, setSetupRequired] = useState(false);
 
   useEffect(() => {
+    setupAxiosInterceptor(logout);
     checkAuth();
   }, []);
 
@@ -37,6 +55,20 @@ const AuthProvider = ({ children }) => {
     try {
       const res = await axios.get(`${API}/auth/check`);
       setSetupRequired(res.data.setup_required);
+      
+      // Validate existing token if we have one
+      const storedToken = localStorage.getItem("ledgeros_token");
+      if (storedToken && !res.data.setup_required) {
+        try {
+          await axios.get(`${API}/reports/dashboard?token=${storedToken}`);
+        } catch (e) {
+          if (e.response?.status === 401) {
+            // Token is invalid, clear it
+            localStorage.removeItem("ledgeros_token");
+            setToken(null);
+          }
+        }
+      }
     } catch (e) {
       console.error("Auth check failed:", e);
     } finally {
@@ -50,9 +82,10 @@ const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    if (token) {
+    const currentToken = localStorage.getItem("ledgeros_token");
+    if (currentToken) {
       try {
-        await axios.post(`${API}/auth/logout?token=${token}`);
+        await axios.post(`${API}/auth/logout?token=${currentToken}`);
       } catch (e) {
         console.error("Logout error:", e);
       }
