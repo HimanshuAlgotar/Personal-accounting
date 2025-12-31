@@ -35,32 +35,41 @@ Personal accounting software for tracking:
 
 ## What's Been Implemented (December 2025)
 
+### Iteration 2 Updates
+- ✅ **Light Theme**: Clean professional light theme throughout
+- ✅ **Transaction Edit**: Edit button on each transaction row with modal
+- ✅ **Ledger Detail View**: Click any ledger to see transactions in side panel
+- ✅ **Interest Calculation**: Auto-calculates accrued interest (simple/compound)
+- ✅ **Search**: Search box in transactions page
+- ✅ **Edit Cash Entries**: Edit functionality in Cash Book
+
 ### Backend APIs
 - `/api/auth/*` - Password setup, login, logout, change password
 - `/api/ledgers/*` - CRUD for ledgers with type/category filtering
-- `/api/transactions/*` - CRUD, bulk tagging, filtering
+- `/api/transactions/*` - CRUD, bulk tagging, filtering, edit
 - `/api/upload/*` - HDFC bank statement parsing, save transactions
-- `/api/loans/*` - Loan management with repayments
+- `/api/loans/*` - Loan management with repayments + interest calculation
+- `/api/loans/{id}/interest` - Calculate accrued interest (simple/compound)
 - `/api/reports/*` - Dashboard, Balance Sheet, Income/Expense
 - `/api/export/*` - Excel export for transactions and balance sheet
-- `/api/tag-patterns` - Auto-tagging pattern management
 
 ### Frontend Pages
-1. **Login** - Password setup/unlock with dark theme
+1. **Login** - Password setup/unlock with light theme
 2. **Dashboard** - Net worth, balances, metrics, recent transactions
 3. **Bank Upload** - Drag & drop XLS upload, inline tagging, bulk actions
-4. **Transactions** - Full transaction list with filters (ledger, tag, date, untagged)
-5. **Ledgers** - Create/edit ledgers with categories (bank, cash, loans, etc.)
-6. **Loans** - Loan tracking with repayment recording
-7. **Cash Book** - Manual cash entries with categorization
+4. **Transactions** - Full list with search, filters, edit/delete per row
+5. **Ledgers** - Create/edit ledgers, click to see transactions in side panel
+6. **Loans** - Loan tracking with auto-calculated interest display
+7. **Cash Book** - Manual cash entries with edit/delete
 8. **Reports** - Balance Sheet + Income/Expense with Recharts
 9. **Settings** - Password change, data export
 
 ### Design
-- Dark "Control Room" theme (Slate-950 base)
-- Typography: Chivo (headings), Manrope (body), JetBrains Mono (currency)
-- Sharp corners, no shadows, border-based hierarchy
-- Color coding: Emerald (income/assets), Rose (expense/liabilities), Indigo (primary)
+- Light "Clean Professional" theme
+- Typography: Manrope (headings/body), JetBrains Mono (currency)
+- Color coding: Emerald (income/assets), Rose (expense/liabilities), Blue (primary)
+- Cards with subtle shadows on hover
+- Side panel for ledger detail view
 
 ## Prioritized Backlog
 
@@ -68,13 +77,15 @@ Personal accounting software for tracking:
 - [x] Password auth
 - [x] Ledger CRUD
 - [x] Bank statement upload (HDFC XLS)
-- [x] Transaction tagging
+- [x] Transaction tagging + edit
 - [x] Auto-tagging patterns
-- [x] Loans tracking
-- [x] Cash book
+- [x] Loans tracking with interest calc
+- [x] Cash book with edit
 - [x] Balance Sheet
 - [x] Income/Expense report
 - [x] Excel export
+- [x] Light theme
+- [x] Ledger detail view with transactions
 
 ### P1 - Next Phase
 - [ ] Support for other bank formats (ICICI, SBI, Axis)
@@ -89,13 +100,6 @@ Personal accounting software for tracking:
 - [ ] Multi-currency support
 - [ ] Data backup/restore
 - [ ] Mobile responsive improvements
-
-## Next Tasks
-1. Add support for more bank statement formats
-2. Implement credit card tracking with due date reminders
-3. Add monthly spending trends visualization
-4. Create investment portfolio module
-5. Add data backup/export to JSON
 
 ## Login Credentials
 Password: admin123 (user can change in Settings)
