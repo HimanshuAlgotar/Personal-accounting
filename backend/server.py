@@ -109,6 +109,7 @@ class Loan(BaseModel):
     loan_type: str
     principal: float
     interest_rate: float = 0.0
+    interest_type: str = "simple"  # simple, compound
     start_date: str
     notes: str = ""
     ledger_id: Optional[str] = None
