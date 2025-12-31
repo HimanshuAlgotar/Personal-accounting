@@ -46,7 +46,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400">Loading dashboard...</div>
+        <div className="text-gray-500">Loading dashboard...</div>
       </div>
     );
   }
@@ -56,18 +56,18 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Your financial overview</p>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Your financial overview</p>
         </div>
         <div className="flex gap-2">
           <Link to="/upload">
-            <Button variant="outline" size="sm" className="border-slate-700 text-slate-300" data-testid="upload-btn">
+            <Button variant="outline" size="sm" data-testid="upload-btn">
               <Upload size={16} className="mr-2" />
               Upload Statement
             </Button>
           </Link>
           <Link to="/cash">
-            <Button size="sm" className="btn-primary text-white" data-testid="add-cash-btn">
+            <Button size="sm" data-testid="add-cash-btn">
               <Plus size={16} className="mr-2" />
               Add Entry
             </Button>
@@ -76,20 +76,20 @@ export default function Dashboard() {
       </div>
 
       {/* Net Worth Card */}
-      <div className="net-worth-card metric-card p-6" data-testid="net-worth-card">
+      <div className="net-worth-card metric-card p-6 rounded-lg" data-testid="net-worth-card">
         <div className="relative z-10">
-          <p className="metric-label">Net Worth</p>
-          <p className={`text-3xl font-mono font-bold ${data?.net_worth >= 0 ? "text-emerald-400" : "text-rose-400"}`} data-testid="net-worth-value">
+          <p className="text-xs uppercase tracking-wider text-white/70 mb-1">Net Worth</p>
+          <p className="text-3xl font-mono font-bold text-white" data-testid="net-worth-value">
             {formatCurrency(data?.net_worth)}
           </p>
-          <div className="flex gap-6 mt-4">
+          <div className="flex gap-8 mt-4">
             <div>
-              <p className="text-xs text-slate-500">Total Assets</p>
-              <p className="font-mono text-emerald-400" data-testid="total-assets">{formatCurrency(data?.total_assets)}</p>
+              <p className="text-xs text-white/60">Total Assets</p>
+              <p className="font-mono text-emerald-300" data-testid="total-assets">{formatCurrency(data?.total_assets)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Total Liabilities</p>
-              <p className="font-mono text-rose-400" data-testid="total-liabilities">{formatCurrency(data?.total_liabilities)}</p>
+              <p className="text-xs text-white/60">Total Liabilities</p>
+              <p className="font-mono text-rose-300" data-testid="total-liabilities">{formatCurrency(data?.total_liabilities)}</p>
             </div>
           </div>
         </div>
@@ -99,34 +99,34 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="metric-card" data-testid="bank-balance-card">
           <div className="flex items-center gap-2 mb-2">
-            <Banknote size={18} className="text-indigo-400" strokeWidth={1.5} />
+            <Banknote size={18} className="text-blue-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Bank Balance</p>
           </div>
-          <p className="metric-value text-white" data-testid="bank-balance">{formatCurrency(data?.bank_balance)}</p>
+          <p className="metric-value" data-testid="bank-balance">{formatCurrency(data?.bank_balance)}</p>
         </div>
 
         <div className="metric-card" data-testid="cash-balance-card">
           <div className="flex items-center gap-2 mb-2">
-            <Wallet size={18} className="text-emerald-400" strokeWidth={1.5} />
+            <Wallet size={18} className="text-emerald-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Cash in Hand</p>
           </div>
-          <p className="metric-value text-white" data-testid="cash-balance">{formatCurrency(data?.cash_balance)}</p>
+          <p className="metric-value" data-testid="cash-balance">{formatCurrency(data?.cash_balance)}</p>
         </div>
 
         <div className="metric-card" data-testid="loans-receivable-card">
           <div className="flex items-center gap-2 mb-2">
-            <ArrowUpRight size={18} className="text-amber-400" strokeWidth={1.5} />
+            <ArrowUpRight size={18} className="text-amber-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Loans Receivable</p>
           </div>
-          <p className="metric-value text-emerald-400" data-testid="loans-receivable">{formatCurrency(data?.loans_receivable)}</p>
+          <p className="metric-value text-emerald-600" data-testid="loans-receivable">{formatCurrency(data?.loans_receivable)}</p>
         </div>
 
         <div className="metric-card" data-testid="loans-payable-card">
           <div className="flex items-center gap-2 mb-2">
-            <ArrowDownRight size={18} className="text-rose-400" strokeWidth={1.5} />
+            <ArrowDownRight size={18} className="text-rose-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Loans Payable</p>
           </div>
-          <p className="metric-value text-rose-400" data-testid="loans-payable">{formatCurrency(data?.loans_payable)}</p>
+          <p className="metric-value text-rose-600" data-testid="loans-payable">{formatCurrency(data?.loans_payable)}</p>
         </div>
       </div>
 
@@ -134,53 +134,53 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="metric-card" data-testid="investments-card">
           <p className="metric-label">Investments</p>
-          <p className="metric-value text-indigo-400" data-testid="investments">{formatCurrency(data?.investments)}</p>
+          <p className="metric-value text-blue-600" data-testid="investments">{formatCurrency(data?.investments)}</p>
         </div>
 
         <div className="metric-card" data-testid="credit-cards-card">
           <div className="flex items-center gap-2 mb-2">
-            <CreditCard size={18} className="text-rose-400" strokeWidth={1.5} />
+            <CreditCard size={18} className="text-rose-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Credit Cards</p>
           </div>
-          <p className="metric-value text-rose-400" data-testid="credit-cards">{formatCurrency(data?.credit_cards)}</p>
+          <p className="metric-value text-rose-600" data-testid="credit-cards">{formatCurrency(data?.credit_cards)}</p>
         </div>
 
         <div className="metric-card" data-testid="monthly-income-card">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={18} className="text-emerald-400" strokeWidth={1.5} />
+            <TrendingUp size={18} className="text-emerald-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Monthly Income</p>
           </div>
-          <p className="metric-value text-emerald-400" data-testid="monthly-income">{formatCurrency(data?.monthly_income)}</p>
+          <p className="metric-value text-emerald-600" data-testid="monthly-income">{formatCurrency(data?.monthly_income)}</p>
         </div>
 
         <div className="metric-card" data-testid="monthly-expense-card">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingDown size={18} className="text-rose-400" strokeWidth={1.5} />
+            <TrendingDown size={18} className="text-rose-600" strokeWidth={1.5} />
             <p className="metric-label mb-0">Monthly Expense</p>
           </div>
-          <p className="metric-value text-rose-400" data-testid="monthly-expense">{formatCurrency(data?.monthly_expense)}</p>
+          <p className="metric-value text-rose-600" data-testid="monthly-expense">{formatCurrency(data?.monthly_expense)}</p>
         </div>
       </div>
 
       {/* Recent Transactions */}
-      <div className="card-surface rounded-sm p-6" data-testid="recent-transactions">
+      <div className="card-surface p-6" data-testid="recent-transactions">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">Recent Transactions</h2>
-          <Link to="/transactions" className="text-sm text-indigo-400 hover:text-indigo-300">
-            View All
+          <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+          <Link to="/transactions" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            View All →
           </Link>
         </div>
 
         {data?.recent_transactions?.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {data.recent_transactions.map((txn) => (
               <div
                 key={txn.id}
-                className="flex items-center justify-between py-3 border-b border-slate-800 last:border-0"
+                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{txn.description}</p>
-                  <p className="text-xs text-slate-500 font-mono">{txn.date}</p>
+                  <p className="text-sm text-gray-900 truncate">{txn.description}</p>
+                  <p className="text-xs text-gray-500 font-mono">{txn.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {txn.tag && (
@@ -192,8 +192,8 @@ export default function Dashboard() {
                       {txn.tag.replace(/_/g, " ")}
                     </span>
                   )}
-                  <p className={`font-mono text-sm ${
-                    txn.transaction_type === "credit" ? "text-emerald-400" : "text-rose-400"
+                  <p className={`font-mono text-sm font-medium ${
+                    txn.transaction_type === "credit" ? "text-emerald-600" : "text-rose-600"
                   }`}>
                     {txn.transaction_type === "credit" ? "+" : "-"}{formatCurrency(txn.amount)}
                   </p>
@@ -202,10 +202,10 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-gray-500">
             <p>No transactions yet</p>
-            <Link to="/upload" className="text-indigo-400 hover:text-indigo-300 text-sm mt-2 inline-block">
-              Upload your first bank statement
+            <Link to="/upload" className="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block font-medium">
+              Upload your first bank statement →
             </Link>
           </div>
         )}

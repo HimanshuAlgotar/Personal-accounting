@@ -36,12 +36,12 @@ export default function Layout({ children }) {
     <div className="app-container" data-testid="app-layout">
       {/* Sidebar */}
       <aside className="sidebar" data-testid="sidebar">
-        <div className="p-4 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-indigo-400 tracking-tight">LedgerOS</h1>
-          <p className="text-xs text-slate-500 mt-1">Personal Accounting</p>
+        <div className="p-5 border-b border-gray-200">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">LedgerOS</h1>
+          <p className="text-xs text-gray-500 mt-1">Personal Accounting</p>
         </div>
 
-        <nav className="py-4">
+        <nav className="py-3">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -58,10 +58,10 @@ export default function Layout({ children }) {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
-            className="nav-item w-full hover:text-rose-400"
+            className="nav-item w-full hover:text-rose-600"
             data-testid="logout-btn"
           >
             <LogOut size={18} strokeWidth={1.5} />
